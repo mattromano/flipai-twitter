@@ -50,9 +50,13 @@ jobs:
         TWITTER_CONSUMER_SECRET: ${{ secrets.TWITTER_CONSUMER_SECRET }}
         TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
         TWITTER_ACCESS_TOKEN_SECRET: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
+        # Flipside login credentials (for CI fallback)
+        FLIPSIDE_EMAIL: ${{ secrets.FLIPSIDE_EMAIL }}
+        FLIPSIDE_PASSWORD: ${{ secrets.FLIPSIDE_PASSWORD }}
         # Analysis settings
         DEBUG_MODE: 'false'
         HEADLESS_MODE: 'true'
+        CHROME_HEADLESS: 'true'
       run: |
         source venv/bin/activate
         if [ -n "${{ github.event.inputs.prompt }}" ]; then

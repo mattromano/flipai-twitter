@@ -128,12 +128,17 @@ class SessionManager:
             self.driver.get("https://flipsidecrypto.xyz/chat/")
             
             # Wait for page to load
-            WebDriverWait(self.driver, 10).until(
+            WebDriverWait(self.driver, 15).until(
                 EC.presence_of_element_located((By.TAG_NAME, "body"))
             )
             
+            # Give the page a moment to fully load
+            time.sleep(2)
+            
             # Check if we're redirected to login page
             current_url = self.driver.current_url
+            logger.debug(f"Session validation - current URL: {current_url}")
+            
             if 'login' in current_url.lower() or 'signin' in current_url.lower():
                 logger.warning(f"Session validation failed - redirected to login page: {current_url}")
                 return False
@@ -149,13 +154,15 @@ class SessionManager:
                 ".authenticated"
             ]
             
+            logger.debug("Checking for authentication indicators...")
             for selector in auth_indicators:
                 try:
                     element = self.driver.find_element(By.CSS_SELECTOR, selector)
-                    if element:
-                        logger.info("Session validation successful - found authenticated element")
+                    if element and element.is_displayed():
+                        logger.info(f"Session validation successful - found authenticated element: {selector}")
                         return True
-                except:
+                except Exception as e:
+                    logger.debug(f"Selector {selector} not found: {e}")
                     continue
             
             # Check for login redirect or authentication required
@@ -166,14 +173,27 @@ class SessionManager:
                 "input[type='password']"
             ]
             
+            logger.debug("Checking for login indicators...")
             for selector in login_indicators:
                 try:
                     element = self.driver.find_element(By.CSS_SELECTOR, selector)
-                    if element:
-                        logger.warning("Session validation failed - found login element")
+                    if element and element.is_displayed():
+                        logger.warning(f"Session validation failed - found login element: {selector}")
                         return False
                 except:
                     continue
+            
+            # Additional check: look for any textarea that might be the chat input
+            try:
+                textareas = self.driver.find_elements(By.TAG_NAME, "textarea")
+                for textarea in textareas:
+                    if textarea.is_displayed():
+                        placeholder = textarea.get_attribute("placeholder") or ""
+                        if "ask" in placeholder.lower() or "message" in placeholder.lower():
+                            logger.info(f"Session validation successful - found chat textarea with placeholder: {placeholder}")
+                            return True
+            except Exception as e:
+                logger.debug(f"Error checking textareas: {e}")
             
             # If we can't find clear indicators, assume session is valid
             logger.info("Session validation inconclusive - assuming valid")
@@ -281,69 +301,309 @@ class SessionManager:
     def handle_login_fallback(self, max_wait_time: int = 300) -> bool:
         """
         Handle login fallback when cookies are expired.
-        This will wait for manual login and then save fresh cookies.
+        Uses stored credentials for automatic login in all environments.
         
         Args:
-            max_wait_time: Maximum time to wait for manual login (seconds)
+            max_wait_time: Maximum time to wait for login (seconds)
             
         Returns:
             True if login was successful, False otherwise
         """
         try:
             logger.warning("🍪 Cookies expired - initiating login fallback")
-            logger.info(f"⏰ Waiting up to {max_wait_time} seconds for manual login...")
             
-            # Navigate to login page
-            self.driver.get("https://flipsidecrypto.xyz/chat/")
+            # Check if we have credentials available
+            email = os.getenv('FLIPSIDE_EMAIL')
+            password = os.getenv('FLIPSIDE_PASSWORD')
             
-            start_time = time.time()
-            login_successful = False
-            
-            while time.time() - start_time < max_wait_time:
-                try:
-                    # Check if we're now authenticated
-                    if self.validate_session():
-                        logger.info("✅ Manual login detected - session is now valid")
-                        login_successful = True
-                        break
-                    
-                    # Check if we're still on login page
-                    current_url = self.driver.current_url
-                    if 'login' not in current_url.lower() and 'signin' not in current_url.lower():
-                        # We might have been redirected, check again
-                        time.sleep(2)
-                        continue
-                    
-                    # Wait a bit before checking again
-                    time.sleep(5)
-                    
-                    # Log progress every 30 seconds
-                    elapsed = int(time.time() - start_time)
-                    if elapsed % 30 == 0 and elapsed > 0:
-                        remaining = max_wait_time - elapsed
-                        logger.info(f"⏳ Still waiting for login... {remaining} seconds remaining")
-                
-                except Exception as e:
-                    logger.warning(f"Error during login wait: {e}")
-                    time.sleep(5)
-                    continue
-            
-            if login_successful:
-                # Save fresh cookies for future use
-                logger.info("💾 Saving fresh cookies for future use...")
-                if self.save_fresh_cookies():
-                    logger.info("✅ Fresh cookies saved successfully")
-                else:
-                    logger.warning("⚠️ Failed to save fresh cookies")
-                
-                return True
+            if email and password:
+                logger.info("🔐 Using stored credentials for automatic login")
+                return self._perform_automatic_login()
             else:
-                logger.error(f"❌ Login timeout after {max_wait_time} seconds")
+                logger.error("❌ Login fallback failed - credentials not available")
+                logger.info("💡 Set FLIPSIDE_EMAIL and FLIPSIDE_PASSWORD environment variables")
                 return False
                 
         except Exception as e:
             logger.error(f"Login fallback failed: {e}")
             return False
+    
+    
+    def _perform_automatic_login(self) -> bool:
+        """
+        Perform automatic login using environment credentials with multiple strategies.
+        
+        Returns:
+            True if login was successful, False otherwise
+        """
+        try:
+            # Get credentials from environment
+            email = os.getenv('FLIPSIDE_EMAIL')
+            password = os.getenv('FLIPSIDE_PASSWORD')
+            
+            if not email or not password:
+                logger.error("❌ Credentials not available in environment")
+                return False
+            
+            logger.info(f"📧 Attempting automatic login for: {email}")
+            
+            # Strategy 1: Try direct login page
+            if self._try_direct_login(email, password):
+                return True
+            
+            # Strategy 2: Try navigating to chat first, then login
+            if self._try_chat_redirect_login(email, password):
+                return True
+            
+            # Strategy 3: Try with different user agents
+            if self._try_user_agent_login(email, password):
+                return True
+            
+            logger.error("❌ All login strategies failed")
+            return False
+                
+        except Exception as e:
+            logger.error(f"Automatic login failed: {e}")
+            return False
+    
+    def _try_direct_login(self, email: str, password: str) -> bool:
+        """Try logging in via direct login page."""
+        try:
+            logger.info("🔄 Strategy 1: Direct login page")
+            
+            # Navigate directly to login page
+            self.driver.get("https://flipsidecrypto.xyz/home/login")
+            time.sleep(3)
+            
+            return self._perform_login_form(email, password)
+            
+        except Exception as e:
+            logger.debug(f"Direct login strategy failed: {e}")
+            return False
+    
+    def _try_chat_redirect_login(self, email: str, password: str) -> bool:
+        """Try logging in via chat redirect."""
+        try:
+            logger.info("🔄 Strategy 2: Chat redirect login")
+            
+            # Navigate to chat (should redirect to login)
+            self.driver.get("https://flipsidecrypto.xyz/chat/")
+            time.sleep(5)
+            
+            return self._perform_login_form(email, password)
+            
+        except Exception as e:
+            logger.debug(f"Chat redirect login strategy failed: {e}")
+            return False
+    
+    def _try_user_agent_login(self, email: str, password: str) -> bool:
+        """Try logging in with different user agent."""
+        try:
+            logger.info("🔄 Strategy 3: User agent login")
+            
+            # Set a different user agent
+            self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+            self.driver.execute_cdp_cmd('Network.setUserAgentOverride', {
+                "userAgent": 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            })
+            
+            # Try login again
+            self.driver.get("https://flipsidecrypto.xyz/chat/")
+            time.sleep(5)
+            
+            return self._perform_login_form(email, password)
+            
+        except Exception as e:
+            logger.debug(f"User agent login strategy failed: {e}")
+            return False
+    
+    def _perform_login_form(self, email: str, password: str) -> bool:
+        """Perform the actual login form submission."""
+        try:
+            # Wait for page to load
+            WebDriverWait(self.driver, 15).until(
+                EC.presence_of_element_located((By.TAG_NAME, "body"))
+            )
+            
+            # Wait a bit more for dynamic content
+            time.sleep(3)
+            
+            # Find and fill email field with multiple attempts
+            email_field = None
+            email_selectors = [
+                "#email",
+                "input[type='email']",
+                "input[name='email']",
+                "input[placeholder*='email']",
+                "input[placeholder*='Email']"
+            ]
+            
+            for selector in email_selectors:
+                try:
+                    email_field = WebDriverWait(self.driver, 5).until(
+                        EC.element_to_be_clickable((By.CSS_SELECTOR, selector))
+                    )
+                    if email_field and email_field.is_displayed():
+                        logger.info(f"✅ Found email field with selector: {selector}")
+                        break
+                except:
+                    continue
+            
+            if not email_field:
+                logger.error("❌ Could not find email input field")
+                return False
+            
+            # Clear and fill email
+            email_field.clear()
+            time.sleep(0.5)
+            email_field.send_keys(email)
+            logger.info("✅ Email entered")
+            
+            # Find and fill password field
+            password_field = None
+            password_selectors = [
+                "#password",
+                "input[type='password']",
+                "input[name='password']",
+                "input[placeholder*='password']",
+                "input[placeholder*='Password']"
+            ]
+            
+            for selector in password_selectors:
+                try:
+                    password_field = WebDriverWait(self.driver, 5).until(
+                        EC.element_to_be_clickable((By.CSS_SELECTOR, selector))
+                    )
+                    if password_field and password_field.is_displayed():
+                        logger.info(f"✅ Found password field with selector: {selector}")
+                        break
+                except:
+                    continue
+            
+            if not password_field:
+                logger.error("❌ Could not find password input field")
+                return False
+            
+            # Clear and fill password
+            password_field.clear()
+            time.sleep(0.5)
+            password_field.send_keys(password)
+            logger.info("✅ Password entered")
+            
+            # Find and click login button
+            login_button = None
+            login_selectors = [
+                "button[type='submit']",
+                "input[type='submit']",
+                "button:contains('Login')",
+                "button:contains('Sign In')",
+                "button:contains('Log in')"
+            ]
+            
+            for selector in login_selectors:
+                try:
+                    if ":contains(" in selector:
+                        # Use XPath for text-based selection
+                        xpath = f"//button[contains(text(), '{selector.split(':contains(')[1].split(')')[0]}')]"
+                        login_button = self.driver.find_element(By.XPATH, xpath)
+                    else:
+                        login_button = self.driver.find_element(By.CSS_SELECTOR, selector)
+                    
+                    if login_button and login_button.is_displayed():
+                        logger.info(f"✅ Found login button with selector: {selector}")
+                        break
+                except:
+                    continue
+            
+            if not login_button:
+                # Try to find button by text content
+                buttons = self.driver.find_elements(By.TAG_NAME, "button")
+                for button in buttons:
+                    try:
+                        if button.text and any(text in button.text.lower() for text in ["login", "sign in", "log in"]) and button.is_displayed():
+                            login_button = button
+                            logger.info("✅ Found login button by text content")
+                            break
+                    except:
+                        pass
+            
+            if login_button:
+                # Scroll to button and click
+                self.driver.execute_script("arguments[0].scrollIntoView(true);", login_button)
+                time.sleep(1)
+                login_button.click()
+                logger.info("✅ Login button clicked")
+            else:
+                # Try pressing Enter on password field
+                password_field.send_keys("\n")
+                logger.info("✅ Submitted form with Enter key")
+            
+            # Wait for login to complete with multiple checks
+            logger.info("⏳ Waiting for login to complete...")
+            
+            # Wait for redirect or page change
+            max_wait = 15
+            for i in range(max_wait):
+                time.sleep(1)
+                current_url = self.driver.current_url
+                
+                # Check if we're no longer on login page
+                if 'login' not in current_url.lower() and 'signin' not in current_url.lower():
+                    logger.info(f"✅ Redirected away from login page: {current_url}")
+                    break
+                
+                if i == max_wait - 1:
+                    logger.warning("⚠️ Still on login page after waiting")
+            
+            # Additional wait for page to stabilize
+            time.sleep(3)
+            
+            # Validate session with retries
+            max_validation_attempts = 5
+            for attempt in range(max_validation_attempts):
+                logger.info(f"🔍 Validating session (attempt {attempt + 1}/{max_validation_attempts})...")
+                
+                if self.validate_session():
+                    logger.info("✅ Automatic login successful")
+                    
+                    # Save fresh cookies
+                    if self.save_fresh_cookies():
+                        logger.info("✅ Fresh cookies saved")
+                    
+                    return True
+                else:
+                    if attempt < max_validation_attempts - 1:
+                        logger.info("⏳ Session validation failed, retrying in 5 seconds...")
+                        time.sleep(5)
+                    else:
+                        logger.warning("⚠️ Session validation failed after all attempts")
+                        return False
+            
+            return False
+                
+        except Exception as e:
+            logger.error(f"Login form submission failed: {e}")
+            return False
+    
+    def _find_element_by_selectors(self, selectors: list):
+        """
+        Find an element using a list of CSS selectors.
+        
+        Args:
+            selectors: List of CSS selectors to try
+            
+        Returns:
+            WebElement if found, None otherwise
+        """
+        for selector in selectors:
+            try:
+                element = self.driver.find_element(By.CSS_SELECTOR, selector)
+                if element and element.is_displayed():
+                    logger.debug(f"✅ Found element with selector: {selector}")
+                    return element
+            except:
+                continue
+        return None
     
     
     def save_fresh_cookies(self, filepath: str = "flipside_cookies.txt") -> bool:

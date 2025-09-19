@@ -6,10 +6,18 @@ This guide will help you set up GitHub Actions to run your Flipside AI + Twitter
 
 You need to add the following secrets to your GitHub repository:
 
-### 1. Flipside Cookies
+### 1. Flipside Authentication
 - **Secret Name:** `FLIPSIDE_COOKIES`
 - **Value:** The base64-encoded cookies from your `flipside_cookies.txt` file
 - **How to get it:** Copy the entire content of your `flipside_cookies.txt` file
+
+- **Secret Name:** `FLIPSIDE_EMAIL`
+- **Value:** Your Flipside Crypto login email
+- **Purpose:** Used for automatic login fallback when cookies expire
+
+- **Secret Name:** `FLIPSIDE_PASSWORD`
+- **Value:** Your Flipside Crypto login password
+- **Purpose:** Used for automatic login fallback when cookies expire
 
 ### 2. Twitter API Credentials
 - **Secret Name:** `TWITTER_BEARER_TOKEN`

@@ -23,6 +23,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 
 from .session_manager import SessionManager
+from .stealth_automation_fixed import StealthAutomation
 from .utils import ScreenshotUtils, WaitUtils, TextUtils
 from .results_logger import ResultsLogger
 from config.prompts import get_prompt_for_today
@@ -31,11 +32,13 @@ from config.prompts import get_prompt_for_today
 class RobustFlipsideChatAutomation:
     """Robust automation class with proper timeouts and error handling."""
     
-    def __init__(self):
+    def __init__(self, use_stealth_auth: bool = True):
         self.driver: Optional[webdriver.Chrome] = None
         self.session_manager: Optional[SessionManager] = None
+        self.stealth_automation: Optional[StealthAutomation] = None
         self.results_logger: Optional[ResultsLogger] = None
         self.automation_logger: AutomationLogger = get_automation_logger()
+        self.use_stealth_auth = use_stealth_auth
         self.setup_logging()
         self.setup_directories()
         self.results_logger = ResultsLogger()
@@ -115,9 +118,51 @@ class RobustFlipsideChatAutomation:
             self.automation_logger.log_error(f"Failed to setup Chrome WebDriver: {e}")
             return False
     
+    def setup_stealth_authentication(self) -> bool:
+        """Set up stealth authentication using undetected-chromedriver."""
+        try:
+            self.automation_logger.log_info("Setting up stealth authentication")
+            
+            # Check for required credentials
+            email = os.getenv('FLIPSIDE_EMAIL')
+            password = os.getenv('FLIPSIDE_PASSWORD')
+            
+            if not email or not password:
+                self.automation_logger.log_error("FLIPSIDE_EMAIL and FLIPSIDE_PASSWORD environment variables are required for stealth authentication")
+                return False
+            
+            # Initialize stealth automation
+            headless_mode = os.getenv('CHROME_HEADLESS', 'true').lower() == 'true'
+            self.stealth_automation = StealthAutomation(headless=headless_mode)
+            
+            # Setup stealth driver
+            if not self.stealth_automation.setup_driver():
+                self.automation_logger.log_error("Failed to setup stealth driver")
+                return False
+            
+            # Use the stealth driver as our main driver
+            self.driver = self.stealth_automation.driver
+            
+            # Perform login
+            if not self.stealth_automation.perform_login():
+                self.automation_logger.log_error("Stealth login failed")
+                return False
+            
+            self.automation_logger.log_success("Stealth authentication completed successfully")
+            return True
+            
+        except Exception as e:
+            self.automation_logger.log_error(f"Stealth authentication failed: {e}")
+            return False
+
     def setup_session_with_timeout(self, timeout: int = 60, enable_fallback: bool = True) -> bool:
         """Set up session with timeout and optional login fallback."""
         try:
+            # Use stealth authentication if enabled
+            if self.use_stealth_auth:
+                return self.setup_stealth_authentication()
+            
+            # Fallback to original session manager approach
             self.automation_logger.log_info("Initializing session manager")
             
             # Initialize session manager
@@ -228,6 +273,12 @@ class RobustFlipsideChatAutomation:
     def submit_prompt_with_timeout(self, prompt: str, timeout: int = 60) -> bool:
         """Submit prompt with timeout."""
         try:
+            # Use stealth automation if available
+            if self.stealth_automation:
+                self.automation_logger.log_info(f"Submitting prompt via stealth automation: {prompt[:50]}...")
+                return self.stealth_automation.submit_prompt(prompt)
+            
+            # Fallback to original method
             self.automation_logger.log_info(f"Submitting prompt: {prompt[:50]}...")
             
             # Find input field with timeout
@@ -319,11 +370,18 @@ class RobustFlipsideChatAutomation:
     def wait_for_complete_response_with_timeout(self, timeout: int = 300) -> bool:
         """Wait for complete AI response including charts and visualizations (5 minutes max)."""
         try:
+            # Use stealth automation if available
+            if self.stealth_automation:
+                self.automation_logger.log_info(f"Waiting for response via stealth automation (timeout: {timeout}s)")
+                return self.stealth_automation.wait_for_response(timeout)
+            
+            # Fallback to original method with improved chat input monitoring
             self.automation_logger.log_info(f"Waiting for complete AI response (timeout: {timeout}s)...")
             
             start_time = time.time()
             response_complete = False
             capture_after_3min = False
+            response_started = False
             
             while time.time() - start_time < timeout:
                 try:
@@ -444,8 +502,42 @@ class RobustFlipsideChatAutomation:
                         self.automation_logger.log_info("3 minutes elapsed - will capture results regardless of completion")
                         capture_after_3min = True
                     
-                    # Response is complete if we have both Twitter text and charts
-                    if twitter_found and charts_found:
+                    # Check if chat input is editable again (indicates response is complete)
+                    chat_input_editable = False
+                    try:
+                        chat_selectors = [
+                            "textarea[placeholder*='Ask FlipsideAI']",
+                            "textarea[placeholder*='message']",
+                            "textarea[data-testid='chat-input']",
+                            "textarea"
+                        ]
+                        
+                        for selector in chat_selectors:
+                            try:
+                                element = self.driver.find_element(By.CSS_SELECTOR, selector)
+                                if element and element.is_displayed() and element.is_enabled():
+                                    chat_input_editable = True
+                                    break
+                            except Exception as stale_error:
+                                # Handle stale element reference
+                                if "stale element" in str(stale_error).lower():
+                                    continue
+                                else:
+                                    continue
+                    except Exception as e:
+                        # Handle any other errors
+                        if "stale element" in str(e).lower():
+                            pass
+                        else:
+                            pass
+                    
+                    # Response is complete if chat input is editable again
+                    if chat_input_editable and (twitter_found or charts_found):
+                        self.automation_logger.log_success("Chat input is editable - response complete!")
+                        response_complete = True
+                        break
+                    # Fallback: Response is complete if we have both Twitter text and charts
+                    elif twitter_found and charts_found:
                         self.automation_logger.log_success("Complete response received with charts")
                         response_complete = True
                         break
@@ -1294,7 +1386,7 @@ class RobustFlipsideChatAutomation:
                 "response_metadata": {}
             }
     
-    def run_analysis(self, custom_prompt: str = None) -> Dict[str, Any]:
+    def run_analysis(self, custom_prompt: str = None, response_timeout: int = 240) -> Dict[str, Any]:
         """Run the complete analysis workflow with timeouts."""
         results = {
             "success": False,
@@ -1348,8 +1440,8 @@ class RobustFlipsideChatAutomation:
             self.automation_logger.end_step(True, "Prompt submitted successfully")
             
             # Step 8: Response Waiting
-            self.automation_logger.start_step(AutomationStep.RESPONSE_WAITING, "Waiting for complete AI response with charts (4 min timeout)")
-            if not self.wait_for_complete_response_with_timeout(240):
+            self.automation_logger.start_step(AutomationStep.RESPONSE_WAITING, f"Waiting for complete AI response with charts ({response_timeout//60} min timeout)")
+            if not self.wait_for_complete_response_with_timeout(response_timeout):
                 self.automation_logger.log_warning("Complete response timeout, but continuing...")
             self.automation_logger.end_step(True, "AI response processing completed")
             
@@ -1416,12 +1508,21 @@ class RobustFlipsideChatAutomation:
         finally:
             # Step 11: Cleanup
             self.automation_logger.start_step(AutomationStep.CLEANUP, "Cleaning up resources")
-            if self.driver:
+            
+            # Cleanup stealth automation if used
+            if self.stealth_automation:
+                try:
+                    self.stealth_automation.cleanup()
+                    self.automation_logger.log_success("Stealth automation cleanup complete")
+                except Exception as e:
+                    self.automation_logger.log_warning(f"Error during stealth automation cleanup: {e}")
+            elif self.driver:
                 try:
                     self.driver.quit()
                     self.automation_logger.log_success("WebDriver cleanup complete")
                 except Exception as e:
                     self.automation_logger.log_warning(f"Error during WebDriver cleanup: {e}")
+            
             self.automation_logger.end_step(True, "Cleanup completed")
             
             # Print final summary

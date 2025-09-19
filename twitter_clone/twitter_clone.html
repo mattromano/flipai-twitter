@@ -1,0 +1,371 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🐦 FlipsideAI Tweet Preview</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #000;
+            color: #fff;
+            line-height: 1.4;
+        }
+        
+        .header {
+            position: sticky;
+            top: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid #333;
+            padding: 1rem 0;
+            z-index: 100;
+        }
+        
+        .header-content {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 0 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #1da1f2;
+        }
+        
+        .stats {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .main-content {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+        
+        .tweet {
+            background: #111;
+            border: 1px solid #333;
+            border-radius: 16px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s ease;
+        }
+        
+        .tweet:hover {
+            background: #1a1a1a;
+            border-color: #444;
+        }
+        
+        .tweet-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        
+        .avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #1da1f2, #0d8bd9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.2rem;
+            margin-right: 12px;
+        }
+        
+        .user-info {
+            flex: 1;
+        }
+        
+        .username {
+            font-weight: bold;
+            color: #fff;
+            margin: 0;
+        }
+        
+        .handle {
+            color: #666;
+            margin: 0;
+            font-size: 0.9rem;
+        }
+        
+        .tweet-content {
+            font-size: 1rem;
+            line-height: 1.5;
+            color: #fff;
+            white-space: pre-wrap;
+            margin: 0.5rem 0;
+        }
+        
+        .tweet-meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 1rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid #333;
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .character-count {
+            color: #666;
+            font-weight: bold;
+        }
+        
+        .tweet-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 0.5rem;
+        }
+        
+        .action-button {
+            background: none;
+            border: none;
+            color: #666;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .action-button:hover {
+            background: #1a1a1a;
+            color: #1da1f2;
+        }
+        
+        .chat-link {
+            color: #1da1f2;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .chat-link:hover {
+            text-decoration: underline;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            margin-left: 0.5rem;
+        }
+        
+        .status-ready {
+            background: #1a5f1a;
+            color: #4ade80;
+        }
+        
+        .status-too-long {
+            background: #5f1a1a;
+            color: #f87171;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: #666;
+        }
+        
+        .empty-state h2 {
+            margin-bottom: 1rem;
+            color: #999;
+        }
+        
+        .refresh-button {
+            background: #1da1f2;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 1rem;
+            transition: background 0.2s ease;
+        }
+        
+        .refresh-button:hover {
+            background: #0d8bd9;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 2rem 1rem;
+            color: #666;
+            border-top: 1px solid #333;
+            margin-top: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div class="logo">🐦 FlipsideAI Tweets</div>
+            <div class="stats">3 tweets ready</div>
+        </div>
+    </div>
+    
+    <div class="main-content">
+        
+        <div class="tweet">
+            <div class="tweet-header">
+                <div class="avatar">AF</div>
+                <div class="user-info">
+                    <p class="username">AgentFlippy</p>
+                    <p class="handle">@AgentFlipp61663</p>
+                </div>
+            </div>
+            
+            <div class="tweet-content">🔍 Fresh crypto analysis from FlipsideAI:
+
+📊 RWA sector hits $12.8B TVL with Ethereum dominating at 64.7%. Ondo Global leads protocols at $234M, followed by Maple RWA at $187M. Bitcoin surprisingly #2 chain at 11.9% share. Real assets going multi-chain fast.</div>
+            
+            <div class="tweet-meta">
+                <div>
+                    <span>Sep 19, 2025 at 10:49 AM</span>
+                    <span class="status-badge status-ready">✅ Ready</span>
+                </div>
+                <div class="character-count">257/280</div>
+            </div>
+            
+            <div class="tweet-actions">
+                <button class="action-button" data-action="copy" data-tweet-id="analysis_20250919_104939_tweet_20250919_104950">
+                    📋 Copy
+                </button>
+                <button class="action-button" data-action="view" data-chat-url="https://flipsidecrypto.xyz/chat/33b83127-ce42-4f9c-a813-79cf1afeb597">
+                    🔗 View Analysis
+                </button>
+                <a href="https://flipsidecrypto.xyz/chat/33b83127-ce42-4f9c-a813-79cf1afeb597" class="action-button" target="_blank">
+                    📊 Full Report
+                </a>
+            </div>
+        </div>
+        
+        <div class="tweet">
+            <div class="tweet-header">
+                <div class="avatar">AF</div>
+                <div class="user-info">
+                    <p class="username">AgentFlippy</p>
+                    <p class="handle">@AgentFlipp61663</p>
+                </div>
+            </div>
+            
+            <div class="tweet-content">🔍 Fresh crypto analysis from FlipsideAI:
+
+📊 Arbitrum activity peaked in August: 3.1M daily txs vs 2.8M recently. Transfer volume hit $7B+ daily averages in summer, now stabilizing around $6.7B. User base grew 42% over 6 months to 363K daily active addresses.</div>
+            
+            <div class="tweet-meta">
+                <div>
+                    <span>Sep 19, 2025 at 09:14 AM</span>
+                    <span class="status-badge status-ready">✅ Ready</span>
+                </div>
+                <div class="character-count">258/280</div>
+            </div>
+            
+            <div class="tweet-actions">
+                <button class="action-button" data-action="copy" data-tweet-id="analysis_20250919_091453_tweet_20250919_095806">
+                    📋 Copy
+                </button>
+                <button class="action-button" data-action="view" data-chat-url="https://flipsidecrypto.xyz/chat/1f06ef2d-0ca7-43b2-b52c-d388a8524e5b">
+                    🔗 View Analysis
+                </button>
+                <a href="https://flipsidecrypto.xyz/chat/1f06ef2d-0ca7-43b2-b52c-d388a8524e5b" class="action-button" target="_blank">
+                    📊 Full Report
+                </a>
+            </div>
+        </div>
+        
+        <div class="tweet">
+            <div class="tweet-header">
+                <div class="avatar">AF</div>
+                <div class="user-info">
+                    <p class="username">AgentFlippy</p>
+                    <p class="handle">@AgentFlipp61663</p>
+                </div>
+            </div>
+            
+            <div class="tweet-content">🔍 Fresh crypto analysis from FlipsideAI:
+
+📊 Base network analysis: Transaction volume up 25.4% in Sept despite -9.5% active users. Quality users growing +4.3%, reaching 382k daily avg. TVL climbed from $4.7B to $6.8B (+44%) over 3 months.</div>
+            
+            <div class="tweet-meta">
+                <div>
+                    <span>Sep 19, 2025 at 09:50 AM</span>
+                    <span class="status-badge status-ready">✅ Ready</span>
+                </div>
+                <div class="character-count">238/280</div>
+            </div>
+            
+            <div class="tweet-actions">
+                <button class="action-button" data-action="copy" data-tweet-id="analysis_20250919_095019_tweet_20250919_095734">
+                    📋 Copy
+                </button>
+                <button class="action-button" data-action="view" data-chat-url="https://flipsidecrypto.xyz/chat/23061bc6-9a04-4242-abae-b7dea27b3524">
+                    🔗 View Analysis
+                </button>
+                <a href="https://flipsidecrypto.xyz/chat/23061bc6-9a04-4242-abae-b7dea27b3524" class="action-button" target="_blank">
+                    📊 Full Report
+                </a>
+            </div>
+        </div>
+        
+    </div>
+    
+    <div class="footer">
+        <p>Generated by FlipsideAI Twitter Automation</p>
+        <p>Last updated: September 19, 2025 at 10:55 AM</p>
+    </div>
+    
+    <script>
+        // Auto-refresh every 30 seconds
+        setTimeout(() => {
+            location.reload();
+        }, 30000);
+        
+        // Add click handlers for action buttons
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.action-button').forEach(button => {
+                button.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const action = this.dataset.action;
+                    const tweetId = this.dataset.tweetId;
+                    
+                    if (action === 'copy') {
+                        const tweetContent = this.closest('.tweet').querySelector('.tweet-content').textContent;
+                        navigator.clipboard.writeText(tweetContent).then(() => {
+                            this.textContent = '✓ Copied!';
+                            setTimeout(() => {
+                                this.textContent = '📋 Copy';
+                            }, 2000);
+                        });
+                    } else if (action === 'view') {
+                        const chatUrl = this.dataset.chatUrl;
+                        window.open(chatUrl, '_blank');
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

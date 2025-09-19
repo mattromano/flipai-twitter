@@ -135,23 +135,50 @@ def run_full_workflow(custom_prompt: str = None, post_to_twitter: bool = True):
                                 logger.log_info(f"Extracted Twitter text: {len(twitter_content)} characters")
                 except Exception as e:
                     logger.log_warning(f"Failed to extract chat text: {e}")
-                
-                # Quick artifact detection
+
+                # Enhanced artifact detection
                 try:
-                    canvas_elements = automation.driver.find_elements("tag name", "canvas")
-                    svg_elements = automation.driver.find_elements("tag name", "svg")
+                    # Look for various chart/visualization elements
+                    artifact_selectors = [
+                        "canvas",
+                        "svg", 
+                        "[data-testid*='chart']",
+                        "[class*='chart']",
+                        "[class*='visualization']",
+                        "[class*='graph']",
+                        ".recharts-wrapper",
+                        ".plotly",
+                        ".highcharts-container",
+                        "iframe[src*='chart']",
+                        "iframe[src*='visualization']"
+                    ]
                     
-                    for element in canvas_elements + svg_elements:
-                        if element.is_displayed() and element.size['width'] > 50 and element.size['height'] > 50:
-                            artifact_info = {
-                                "type": "visualization",
-                                "tag": element.tag_name,
-                                "size": element.size,
-                                "location": element.location
-                            }
-                            results["artifacts"].append(artifact_info)
-                    
-                    logger.log_info(f"Found {len(results['artifacts'])} artifacts")
+                    artifacts_found = 0
+                    for selector in artifact_selectors:
+                        try:
+                            if selector.startswith('[') or selector.startswith('.'):
+                                elements = automation.driver.find_elements("css selector", selector)
+                            else:
+                                elements = automation.driver.find_elements("tag name", selector)
+                            
+                            for element in elements:
+                                try:
+                                    if element.is_displayed() and element.size['width'] > 50 and element.size['height'] > 50:
+                                        artifact_info = {
+                                            "type": "visualization",
+                                            "tag": element.tag_name,
+                                            "selector": selector,
+                                            "size": element.size,
+                                            "location": element.location
+                                        }
+                                        results["artifacts"].append(artifact_info)
+                                        artifacts_found += 1
+                                except:
+                                    continue
+                        except:
+                            continue
+
+                    logger.log_info(f"Found {artifacts_found} artifacts using enhanced detection")
                 except Exception as e:
                     logger.log_warning(f"Failed to capture artifacts: {e}")
                 
@@ -171,8 +198,8 @@ def run_full_workflow(custom_prompt: str = None, post_to_twitter: bool = True):
         # Replace the slow method with the fast one
         automation.capture_results = fast_capture_results
         
-        # Run analysis
-        analysis_results = automation.run_analysis(custom_prompt)
+        # Run analysis with longer timeout for charts
+        analysis_results = automation.run_analysis(custom_prompt, response_timeout=600)  # 10 minutes
         
         if not analysis_results.get("success", False):
             logger.log_error("❌ Analysis failed!")
