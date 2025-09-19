@@ -25,7 +25,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'modules'))
 
 from chat_manager import FlipsideChatManager
 from twitter_manager import TwitterPoster, TweetPreviewGenerator
-from shared import AutomationLogger
+from shared import AutomationLogger, PromptSelector
 
 
 class MainWorkflow:
@@ -36,6 +36,7 @@ class MainWorkflow:
         self.chat_manager = FlipsideChatManager()
         self.twitter_poster = None  # Initialize only when needed
         self.tweet_preview = TweetPreviewGenerator()
+        self.prompt_selector = PromptSelector()
     
     def run_analysis_only(self, prompt: str, timeout: int = 600) -> dict:
         """Run analysis workflow only (no Twitter posting)."""
@@ -187,22 +188,43 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Run analysis only
+  # Run analysis only with custom prompt
   python main_workflow.py --prompt "Analyze Bitcoin trends" --analysis-only
 
   # Run full workflow with Twitter posting
   python main_workflow.py --prompt "Compare DeFi protocols"
+
+  # Select random prompt
+  python main_workflow.py --random-prompt
+
+  # Select random prompt from specific category
+  python main_workflow.py --random-prompt --category "DeFi Ecosystem Health"
+
+  # Select random prompt by difficulty
+  python main_workflow.py --random-prompt --difficulty intermediate
 
   # Run with custom timeout
   python main_workflow.py --prompt "Complex analysis" --timeout 900
 
   # Run without Twitter posting
   python main_workflow.py --prompt "Analysis only" --no-twitter
+
+  # Show prompt usage statistics
+  python main_workflow.py --stats
         """
     )
     
-    parser.add_argument("--prompt", "-p", required=True,
-                       help="Analysis prompt")
+    # Prompt selection arguments
+    prompt_group = parser.add_mutually_exclusive_group()
+    prompt_group.add_argument("--prompt", "-p",
+                             help="Analysis prompt")
+    prompt_group.add_argument("--random-prompt", action="store_true",
+                             help="Select a random prompt from the prompts file")
+    
+    parser.add_argument("--category", type=str,
+                       help="Filter prompts by category (use with --random-prompt)")
+    parser.add_argument("--difficulty", type=str, choices=["intermediate", "advanced"],
+                       help="Filter prompts by difficulty (use with --random-prompt)")
     parser.add_argument("--analysis-only", action="store_true",
                        help="Run analysis only (no Twitter posting)")
     parser.add_argument("--no-twitter", action="store_true",
@@ -211,6 +233,8 @@ Examples:
                        help="Response timeout in seconds (default: 600)")
     parser.add_argument("--debug", action="store_true",
                        help="Enable debug mode")
+    parser.add_argument("--stats", action="store_true",
+                       help="Show prompt usage statistics and exit")
     
     args = parser.parse_args()
     
@@ -219,10 +243,54 @@ Examples:
         os.environ["DEBUG_MODE"] = "true"
         print("🐛 Debug mode enabled")
     
+    # Handle stats display
+    if args.stats:
+        workflow = MainWorkflow()
+        stats = workflow.prompt_selector.get_usage_stats()
+        print("\n📊 Prompt Usage Statistics")
+        print("=" * 40)
+        print(f"Total Prompts: {stats['total_prompts']}")
+        print(f"Used Prompts: {stats['used_prompts']}")
+        print(f"Available Prompts: {stats['available_prompts']}")
+        print(f"Usage Percentage: {stats['usage_percentage']:.1f}%")
+        print(f"Total Runs: {stats['total_runs']}")
+        if stats['last_reset']:
+            print(f"Last Reset: {stats['last_reset']}")
+        print(f"\nAvailable Categories: {', '.join(stats['categories_available'])}")
+        print(f"Available Difficulties: {', '.join(stats['difficulty_levels_available'])}")
+        sys.exit(0)
+    
+    # Validate that either prompt or random-prompt is provided
+    if not args.prompt and not args.random_prompt:
+        parser.error("Either --prompt or --random-prompt must be provided")
+    
+    # Determine the prompt to use
+    workflow = MainWorkflow()
+    prompt_to_use = None
+    selected_prompt_info = None
+    
+    if args.prompt:
+        prompt_to_use = args.prompt
+        print("📝 Using provided prompt")
+    elif args.random_prompt:
+        selected_prompt_info = workflow.prompt_selector.select_and_mark_prompt(
+            category_filter=args.category,
+            difficulty_filter=args.difficulty
+        )
+        
+        if selected_prompt_info:
+            prompt_to_use = selected_prompt_info["prompt"]
+            print(f"🎯 Selected random prompt (ID: {selected_prompt_info['id']})")
+            print(f"📂 Category: {selected_prompt_info['category']}")
+            print(f"📊 Difficulty: {selected_prompt_info['difficulty']}")
+        else:
+            print("❌ No available prompts found with the specified criteria")
+            sys.exit(1)
+    
     # Show what we're running
     print("🚀 Flipside AI + Twitter Automation")
     print("=" * 50)
-    print(f"📝 Prompt: {args.prompt}")
+    print(f"📝 Prompt: {prompt_to_use[:100]}{'...' if len(prompt_to_use) > 100 else ''}")
     print(f"⏱️  Timeout: {args.timeout} seconds")
     
     if args.analysis_only:
@@ -235,17 +303,19 @@ Examples:
     print()
     
     # Run workflow
-    workflow = MainWorkflow()
-    
     try:
         if args.analysis_only:
-            result = workflow.run_analysis_only(args.prompt, args.timeout)
+            result = workflow.run_analysis_only(prompt_to_use, args.timeout)
         else:
             result = workflow.run_full_workflow(
-                args.prompt, 
+                prompt_to_use, 
                 args.timeout, 
                 post_to_twitter=not args.no_twitter
             )
+        
+        # Log the selected prompt info if using random selection
+        if selected_prompt_info:
+            workflow.logger.log_info(f"Used prompt ID {selected_prompt_info['id']}: {selected_prompt_info['category']} - {selected_prompt_info['difficulty']}")
         
         # Exit with appropriate code
         sys.exit(0 if result.get("success", False) else 1)
