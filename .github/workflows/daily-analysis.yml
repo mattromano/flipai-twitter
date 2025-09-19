@@ -33,6 +33,7 @@ on:
 jobs:
   analyze:
     runs-on: ubuntu-latest
+    environment: twitter_analyst
     
     steps:
     - name: Checkout repository
