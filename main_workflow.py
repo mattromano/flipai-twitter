@@ -1,0 +1,283 @@
+#!/usr/bin/env python3
+"""
+Main Workflow Script
+
+Orchestrates the complete Flipside AI + Twitter automation workflow.
+This is the single entry point for all automation tasks.
+"""
+
+import os
+import sys
+import json
+import argparse
+from datetime import datetime
+from pathlib import Path
+
+# Load environment variables
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    print("⚠️  python-dotenv not installed. Install with: pip install python-dotenv")
+
+# Add modules to path
+sys.path.append(os.path.join(os.path.dirname(__file__), 'modules'))
+
+from chat_manager import FlipsideChatManager
+from twitter_manager import TwitterPoster, TweetPreviewGenerator
+from shared import AutomationLogger
+
+
+class MainWorkflow:
+    """Main workflow orchestrator."""
+    
+    def __init__(self):
+        self.logger = AutomationLogger()
+        self.chat_manager = FlipsideChatManager()
+        self.twitter_poster = TwitterPoster()
+        self.tweet_preview = TweetPreviewGenerator()
+    
+    def run_analysis_only(self, prompt: str, timeout: int = 600) -> dict:
+        """Run analysis workflow only (no Twitter posting)."""
+        try:
+            self.logger.log_info("🚀 Starting Flipside AI Analysis Workflow")
+            self.logger.log_info("=" * 60)
+            
+            # Step 1: Initialize
+            if not self.chat_manager.initialize():
+                return {"success": False, "error": "Failed to initialize chat manager"}
+            
+            # Step 2: Authenticate
+            if not self.chat_manager.authenticate():
+                return {"success": False, "error": "Failed to authenticate"}
+            
+            # Step 3: Navigate to chat
+            if not self.chat_manager.navigate_to_chat():
+                return {"success": False, "error": "Failed to navigate to chat"}
+            
+            # Step 4: Submit prompt
+            if not self.chat_manager.submit_prompt(prompt):
+                return {"success": False, "error": "Failed to submit prompt"}
+            
+            # Step 5: Wait for response
+            if not self.chat_manager.wait_for_response(timeout):
+                self.logger.log_warning("⚠️ Response timeout, but continuing with data capture")
+            
+            # Step 6: Extract data
+            analysis_data = self.chat_manager.extract_data()
+            
+            # Step 7: Capture final screenshot
+            screenshot_path = self.chat_manager.capture_final_screenshot()
+            if screenshot_path:
+                analysis_data["screenshots"] = [screenshot_path]
+            
+            # Step 8: Save results
+            self._save_analysis_results(analysis_data, prompt)
+            
+            self.logger.log_success("✅ Analysis workflow completed successfully!")
+            return {
+                "success": True,
+                "data": analysis_data,
+                "timestamp": datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            self.logger.log_error(f"Analysis workflow failed: {e}")
+            return {"success": False, "error": str(e)}
+        
+        finally:
+            self.chat_manager.cleanup()
+    
+    def run_full_workflow(self, prompt: str, timeout: int = 600, post_to_twitter: bool = True) -> dict:
+        """Run complete workflow: analysis + Twitter posting."""
+        try:
+            self.logger.log_info("🚀 Starting Complete Flipside AI + Twitter Workflow")
+            self.logger.log_info("=" * 60)
+            
+            # Step 1: Run analysis
+            analysis_result = self.run_analysis_only(prompt, timeout)
+            
+            if not analysis_result.get("success", False):
+                return analysis_result
+            
+            # Step 2: Generate tweet preview
+            self.logger.log_info("🐦 Generating tweet preview...")
+            tweet_data = self.tweet_preview.create_tweet_preview(analysis_result)
+            
+            if tweet_data:
+                json_file, html_file, md_file = self.tweet_preview.save_tweet_preview(
+                    tweet_data, f"analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                )
+                self.logger.log_success(f"✅ Tweet preview generated: {json_file}")
+            
+            # Step 3: Post to Twitter (if enabled)
+            twitter_result = None
+            if post_to_twitter:
+                self.logger.log_info("🐦 Posting to Twitter...")
+                twitter_result = self.twitter_poster.post_from_analysis(analysis_result)
+                
+                if twitter_result.get("success", False):
+                    self.logger.log_success(f"✅ Tweet posted successfully: {twitter_result['tweet_id']}")
+                else:
+                    self.logger.log_warning(f"⚠️ Twitter posting failed: {twitter_result.get('error', 'Unknown error')}")
+            else:
+                self.logger.log_info("⏭️ Twitter posting skipped")
+            
+            # Step 4: Summary
+            self._print_workflow_summary(analysis_result, twitter_result)
+            
+            return {
+                "success": True,
+                "analysis_result": analysis_result,
+                "twitter_result": twitter_result,
+                "tweet_preview": tweet_data,
+                "timestamp": datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            self.logger.log_error(f"Full workflow failed: {e}")
+            return {"success": False, "error": str(e)}
+    
+    def _save_analysis_results(self, analysis_data: dict, prompt: str):
+        """Save analysis results to file."""
+        try:
+            # Create logs directory
+            os.makedirs("logs", exist_ok=True)
+            
+            # Prepare results
+            results = {
+                "timestamp": datetime.now().isoformat(),
+                "prompt": prompt,
+                "data": analysis_data
+            }
+            
+            # Save to file
+            filename = f"logs/analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            with open(filename, 'w', encoding='utf-8') as f:
+                json.dump(results, f, indent=2, ensure_ascii=False)
+            
+            self.logger.log_success(f"📝 Analysis results saved: {filename}")
+            
+        except Exception as e:
+            self.logger.log_error(f"Failed to save analysis results: {e}")
+    
+    def _print_workflow_summary(self, analysis_result: dict, twitter_result: dict = None):
+        """Print workflow summary."""
+        try:
+            self.logger.log_info("\n📋 Workflow Summary:")
+            self.logger.log_info("=" * 50)
+            
+            # Analysis summary
+            data = analysis_result.get("data", {})
+            response_length = len(data.get("response_text", ""))
+            artifacts_count = len(data.get("artifacts", []))
+            screenshots_count = len(data.get("screenshots", []))
+            
+            self.logger.log_info(f"📊 Analysis Results:")
+            self.logger.log_info(f"  Response Length: {response_length} characters")
+            self.logger.log_info(f"  Artifacts Found: {artifacts_count}")
+            self.logger.log_info(f"  Screenshots Taken: {screenshots_count}")
+            
+            if response_length > 0:
+                self.logger.log_info(f"\n📝 Response Preview:")
+                response_text = data.get("response_text", "")
+                preview = response_text[:200] + "..." if len(response_text) > 200 else response_text
+                self.logger.log_info(f"  {preview}")
+            
+            # Twitter summary
+            if twitter_result:
+                self.logger.log_info(f"\n🐦 Twitter Results:")
+                if twitter_result.get("success", False):
+                    self.logger.log_info(f"  Status: ✅ Posted successfully")
+                    self.logger.log_info(f"  Tweet ID: {twitter_result['tweet_id']}")
+                    tweet_content = twitter_result.get("text", "")
+                    if tweet_content:
+                        self.logger.log_info(f"  Content: {tweet_content[:100]}...")
+                else:
+                    self.logger.log_info(f"  Status: ❌ Failed")
+                    self.logger.log_info(f"  Error: {twitter_result.get('error', 'Unknown error')}")
+            
+        except Exception as e:
+            self.logger.log_error(f"Failed to print summary: {e}")
+
+
+def main():
+    """Main entry point."""
+    parser = argparse.ArgumentParser(
+        description="Flipside AI + Twitter Automation Workflow",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Run analysis only
+  python main_workflow.py --prompt "Analyze Bitcoin trends" --analysis-only
+
+  # Run full workflow with Twitter posting
+  python main_workflow.py --prompt "Compare DeFi protocols"
+
+  # Run with custom timeout
+  python main_workflow.py --prompt "Complex analysis" --timeout 900
+
+  # Run without Twitter posting
+  python main_workflow.py --prompt "Analysis only" --no-twitter
+        """
+    )
+    
+    parser.add_argument("--prompt", "-p", required=True,
+                       help="Analysis prompt")
+    parser.add_argument("--analysis-only", action="store_true",
+                       help="Run analysis only (no Twitter posting)")
+    parser.add_argument("--no-twitter", action="store_true",
+                       help="Skip Twitter posting")
+    parser.add_argument("--timeout", "-t", type=int, default=600,
+                       help="Response timeout in seconds (default: 600)")
+    parser.add_argument("--debug", action="store_true",
+                       help="Enable debug mode")
+    
+    args = parser.parse_args()
+    
+    # Set debug mode
+    if args.debug:
+        os.environ["DEBUG_MODE"] = "true"
+        print("🐛 Debug mode enabled")
+    
+    # Show what we're running
+    print("🚀 Flipside AI + Twitter Automation")
+    print("=" * 50)
+    print(f"📝 Prompt: {args.prompt}")
+    print(f"⏱️  Timeout: {args.timeout} seconds")
+    
+    if args.analysis_only:
+        print("📊 Mode: Analysis only")
+    elif args.no_twitter:
+        print("🐦 Mode: Analysis + Preview (no Twitter posting)")
+    else:
+        print("🐦 Mode: Full workflow (Analysis + Twitter)")
+    
+    print()
+    
+    # Run workflow
+    workflow = MainWorkflow()
+    
+    try:
+        if args.analysis_only:
+            result = workflow.run_analysis_only(args.prompt, args.timeout)
+        else:
+            result = workflow.run_full_workflow(
+                args.prompt, 
+                args.timeout, 
+                post_to_twitter=not args.no_twitter
+            )
+        
+        # Exit with appropriate code
+        sys.exit(0 if result.get("success", False) else 1)
+        
+    except KeyboardInterrupt:
+        print("\n⚠️ Workflow interrupted by user")
+        sys.exit(1)
+    except Exception as e:
+        print(f"❌ Unexpected error: {e}")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
