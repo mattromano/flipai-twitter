@@ -53,14 +53,6 @@ Thumbs.db
 
 # Logs
 *.log
-logs/
-
-# Screenshots and artifacts
-screenshots/
-artifacts/
-*.png
-*.jpg
-*.jpeg
 
 # Selenium
 chromedriver
