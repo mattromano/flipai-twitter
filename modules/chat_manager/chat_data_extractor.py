@@ -379,22 +379,67 @@ class ChatDataExtractor:
             self.driver.get(artifact_url)
             time.sleep(5)
             
-            # Step 4: Wait for the artifact page to load
-            self.logger.log_info("⏳ Waiting for artifact page to load...")
-            time.sleep(3)
+            # Step 4: Optimize window size for artifact capture (1200x800px)
+            self.logger.log_info("🖥️ Setting window size to 1200x800px for optimal artifact capture")
+            self.driver.set_window_size(1200, 800)
+            time.sleep(2)
             
-            # Step 5: Take screenshot of the artifact page
+            # Step 5: Wait for the artifact page to load completely
+            self.logger.log_info("⏳ Waiting for artifact page to load completely...")
+            time.sleep(5)
+            
+            # Step 6: Scroll through entire page to ensure all content is loaded
+            self.logger.log_info("📜 Scrolling through entire page to load all content...")
+            self._scroll_through_page()
+            
+            # Step 7: Take full page screenshot of the artifact
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             screenshot_path = f"screenshots/artifact_{timestamp}.png"
             
-            self.logger.log_info("📸 Taking screenshot of artifact...")
-            self.driver.save_screenshot(screenshot_path)
+            self.logger.log_info("📸 Taking full page screenshot of artifact...")
             
-            # Step 6: Get file details and return path
+            # Method 1: Try full page screenshot using JavaScript
+            try:
+                # Get the full page dimensions
+                total_width = self.driver.execute_script("return Math.max(document.body.scrollWidth, document.documentElement.scrollWidth);")
+                total_height = self.driver.execute_script("return Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);")
+                
+                # Add 100 pixels to height to prevent bottom cutoff
+                adjusted_height = total_height + 100
+                
+                self.logger.log_info(f"📏 Full page dimensions: {total_width}x{total_height} (adjusted height: {adjusted_height})")
+                
+                # Set viewport to full page size with extra height buffer
+                self.driver.set_window_size(total_width, adjusted_height)
+                time.sleep(2)
+                
+                # Take screenshot
+                self.driver.save_screenshot(screenshot_path)
+                
+                self.logger.log_success(f"✅ Full page screenshot captured: {total_width}x{adjusted_height} (original: {total_height})")
+                
+            except Exception as e:
+                self.logger.log_warning(f"⚠️ Full page screenshot failed, using standard method: {e}")
+                # Fallback to standard screenshot
+                self.driver.save_screenshot(screenshot_path)
+            
+            # Step 8: Get file details and return path
             if os.path.exists(screenshot_path):
                 file_size = os.path.getsize(screenshot_path)
                 self.logger.log_success(f"✅ Artifact screenshot saved: {screenshot_path}")
                 self.logger.log_info(f"📁 File size: {file_size:,} bytes ({file_size/1024:.1f} KB)")
+                
+                # Log screenshot dimensions for verification
+                try:
+                    from PIL import Image
+                    with Image.open(screenshot_path) as img:
+                        width, height = img.size
+                        self.logger.log_info(f"📐 Screenshot dimensions: {width}x{height}")
+                except ImportError:
+                    self.logger.log_info("ℹ️ PIL not available for dimension verification")
+                except Exception as e:
+                    self.logger.log_debug(f"Could not get image dimensions: {e}")
+                
                 return screenshot_path
             else:
                 self.logger.log_error("❌ Screenshot file was not created")
@@ -762,6 +807,57 @@ class ChatDataExtractor:
             self.logger.log_error(f"View button search failed: {e}")
             return None
     
+    def _scroll_through_page(self):
+        """Scroll through the entire page to ensure all content is loaded."""
+        try:
+            self.logger.log_info("📜 Starting page scroll to load all content...")
+            
+            # Get initial page height
+            last_height = self.driver.execute_script("return document.body.scrollHeight")
+            scroll_pause_time = 1
+            max_scrolls = 10  # Prevent infinite scrolling
+            scroll_count = 0
+            
+            while scroll_count < max_scrolls:
+                # Scroll down to bottom
+                self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                
+                # Wait for new content to load
+                time.sleep(scroll_pause_time)
+                
+                # Calculate new scroll height and compare with last scroll height
+                new_height = self.driver.execute_script("return document.body.scrollHeight")
+                
+                if new_height == last_height:
+                    # No new content loaded, we've reached the bottom
+                    self.logger.log_info("📜 Reached bottom of page, all content loaded")
+                    break
+                
+                last_height = new_height
+                scroll_count += 1
+                self.logger.log_debug(f"📜 Scrolled {scroll_count} times, page height: {new_height}")
+            
+            # Scroll back to top to capture from beginning
+            self.driver.execute_script("window.scrollTo(0, 0);")
+            time.sleep(1)
+            
+            # Also scroll horizontally if needed (for wide charts)
+            self.logger.log_info("📜 Checking for horizontal scrolling needs...")
+            page_width = self.driver.execute_script("return document.body.scrollWidth")
+            window_width = self.driver.get_window_size()["width"]
+            
+            if page_width > window_width:
+                self.logger.log_info(f"📜 Page is wider ({page_width}px) than window ({window_width}px), scrolling horizontally")
+                self.driver.execute_script("window.scrollTo(document.body.scrollWidth/2, 0);")
+                time.sleep(1)
+                self.driver.execute_script("window.scrollTo(0, 0);")
+                time.sleep(1)
+            
+            self.logger.log_success("✅ Page scrolling completed")
+            
+        except Exception as e:
+            self.logger.log_error(f"Error during page scrolling: {e}")
+
     def _capture_final_screenshot(self) -> str:
         """Capture final screenshot of the chat."""
         try:

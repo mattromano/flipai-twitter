@@ -432,6 +432,42 @@ class FlipsideChatManager:
             # Extract shareable link first
             shareable_url = self.extract_shareable_link()
             
+            # Use the chat data extractor for better extraction
+            from modules.chat_manager.chat_data_extractor import ChatDataExtractor
+            extractor = ChatDataExtractor()
+            
+            # Extract data using the specialized extractor
+            extraction_result = extractor.extract_from_chat_url(shareable_url)
+            
+            if extraction_result["success"]:
+                results = {
+                    "timestamp": datetime.now().isoformat(),
+                    "chat_url": shareable_url if shareable_url else self.driver.current_url,
+                    "response_text": extraction_result["response_text"],
+                    "twitter_text": extraction_result["twitter_text"],
+                    "artifacts": [],
+                    "screenshots": extraction_result["screenshots"],
+                    "response_metadata": {}
+                }
+                
+                # Add artifact screenshot if available
+                if extraction_result["artifact_screenshot"]:
+                    artifact_info = {
+                        "type": "analysis_artifact",
+                        "index": 1,
+                        "screenshot": extraction_result["artifact_screenshot"],
+                        "selector": "artifact_page",
+                        "tag_name": "page"
+                    }
+                    results["artifacts"].append(artifact_info)
+                    results["screenshots"].append(extraction_result["artifact_screenshot"])
+                
+                self.logger.log_success(f"✅ Data extracted using specialized extractor: {len(results['twitter_text'])} chars Twitter, {len(results['response_text'])} chars response")
+                return results
+            
+            # Fallback to original extraction if specialized extractor fails
+            self.logger.log_warning("⚠️ Specialized extractor failed, using fallback extraction")
+            
             results = {
                 "timestamp": datetime.now().isoformat(),
                 "chat_url": shareable_url if shareable_url else self.driver.current_url,

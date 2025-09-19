@@ -15,7 +15,7 @@ def main():
     logger = AutomationLogger()
     
     # Test with the recent chat URL (shared format)
-    chat_url = "https://flipsidecrypto.xyz/chat/shared/chats/0c1044a0-cbc2-44d1-8642-12f1ccb8ebe2"
+    chat_url = "https://flipsidecrypto.xyz/chat/shared/chats/3b3ac43f-281a-4219-991e-7dbbe9e12710"
     
     logger.log_info("🚀 Starting chat data extraction test")
     logger.log_info(f"📋 Chat URL: {chat_url}")
