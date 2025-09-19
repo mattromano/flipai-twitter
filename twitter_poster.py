@@ -180,11 +180,11 @@ class TwitterPoster:
                     "tweet_data": tweet_data
                 }
             
-            # Add chat URL to tweet if available
+            # Add chat URL to tweet if available - Twitter will create a link card
             tweet_content = tweet_data["content"]
             chat_url = analysis_data.get("data", {}).get("chat_url", "")
             
-            if chat_url and "Here's the chat link if you want to dive deeper" in tweet_content:
+            if chat_url:
                 # Convert to shared format if it's a regular chat URL
                 if "/chat/" in chat_url and "/shared/chats/" not in chat_url:
                     # Extract the chat ID and convert to shared format
@@ -193,8 +193,16 @@ class TwitterPoster:
                 else:
                     shared_url = chat_url
                 
-                # Append the URL to the tweet
-                tweet_content += f"\n\n{shared_url}"
+                # Check if descriptive text is already present
+                if "Here's the chat link if you want to dive deeper" in tweet_content:
+                    # Append the URL after the descriptive text
+                    tweet_content += f"\n\n{shared_url}"
+                elif "Chat link below ⬇️" in tweet_content:
+                    # Append the URL after the simple reference
+                    tweet_content += f"\n\n{shared_url}"
+                else:
+                    # No descriptive text, just append the URL directly
+                    tweet_content += f"\n\n{shared_url}"
             
             # Post the tweet
             result = self.post_tweet(

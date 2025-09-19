@@ -1,10 +1,15 @@
-name: Daily Flipside Chat Analysis
+name: Flipside AI + Twitter Automation
 
 on:
   schedule:
     # Run daily at 9 AM UTC
     - cron: '0 9 * * *'
   workflow_dispatch: # Allow manual trigger
+    inputs:
+      prompt:
+        description: 'Custom analysis prompt'
+        required: false
+        default: 'Give me a comprehensive analysis of the current DeFi landscape, focusing on TVL trends and major protocol performance'
 
 jobs:
   analyze:
@@ -33,21 +38,37 @@ jobs:
       with:
         chrome-version: 'latest'
         
-    - name: Run Flipside Chat Analysis
+    - name: Create cookies file
+      run: |
+        echo "${{ secrets.FLIPSIDE_COOKIES }}" > flipside_cookies.txt
+        
+    - name: Run Full Flipside AI + Twitter Workflow
       env:
-        FLIPSIDE_COOKIES: ${{ secrets.FLIPSIDE_COOKIES }}
-        DEBUG_MODE: 'true'
-        ANALYSIS_TIMEOUT: '90'
+        # Twitter API credentials
+        TWITTER_BEARER_TOKEN: ${{ secrets.TWITTER_BEARER_TOKEN }}
+        TWITTER_CONSUMER_KEY: ${{ secrets.TWITTER_CONSUMER_KEY }}
+        TWITTER_CONSUMER_SECRET: ${{ secrets.TWITTER_CONSUMER_SECRET }}
+        TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+        TWITTER_ACCESS_TOKEN_SECRET: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
+        # Analysis settings
+        DEBUG_MODE: 'false'
+        HEADLESS_MODE: 'true'
       run: |
         source venv/bin/activate
-        python src/chat_automation.py
+        if [ -n "${{ github.event.inputs.prompt }}" ]; then
+          python run_full_workflow.py --prompt "${{ github.event.inputs.prompt }}"
+        else
+          python run_full_workflow.py --prompt "Give me a comprehensive analysis of the current DeFi landscape, focusing on TVL trends and major protocol performance"
+        fi
         
     - name: Upload screenshots as artifacts
       uses: actions/upload-artifact@v4
       if: always()
       with:
         name: analysis-screenshots-${{ github.run_number }}
-        path: screenshots/
+        path: |
+          screenshots/
+          charts/
         retention-days: 30
         
     - name: Upload logs as artifacts
@@ -65,30 +86,49 @@ jobs:
         name: analysis-results-${{ github.run_number }}
         path: |
           logs/analysis_*.json
-          logs/daily_summary_*.jsonl
+          logs/twitter_posts_*.jsonl
         retention-days: 30
         
     - name: Create analysis summary
       if: always()
       run: |
-        echo "## 📊 Analysis Summary" >> $GITHUB_STEP_SUMMARY
+        echo "## 🤖 Flipside AI + Twitter Automation Summary" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "**Run Number:** ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
         echo "**Timestamp:** $(date)" >> $GITHUB_STEP_SUMMARY
+        echo "**Trigger:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+        if [ -n "${{ github.event.inputs.prompt }}" ]; then
+          echo "**Custom Prompt:** ${{ github.event.inputs.prompt }}" >> $GITHUB_STEP_SUMMARY
+        fi
         echo "" >> $GITHUB_STEP_SUMMARY
         
         if [ -d "logs" ]; then
           echo "### 📁 Generated Files" >> $GITHUB_STEP_SUMMARY
           echo "- Screenshots: \`screenshots/\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Charts: \`charts/\`" >> $GITHUB_STEP_SUMMARY
           echo "- Analysis Logs: \`logs/analysis_*.json\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Daily Summary: \`logs/daily_summary_*.jsonl\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Twitter Posts: \`logs/twitter_posts_*.jsonl\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           # Count files
           SCREENSHOT_COUNT=$(find screenshots/ -name "*.png" 2>/dev/null | wc -l || echo "0")
+          CHART_COUNT=$(find charts/ -name "*.png" 2>/dev/null | wc -l || echo "0")
           LOG_COUNT=$(find logs/ -name "analysis_*.json" 2>/dev/null | wc -l || echo "0")
+          TWITTER_COUNT=$(find logs/ -name "twitter_posts_*.jsonl" 2>/dev/null | wc -l || echo "0")
           
           echo "### 📈 Statistics" >> $GITHUB_STEP_SUMMARY
           echo "- Screenshots captured: $SCREENSHOT_COUNT" >> $GITHUB_STEP_SUMMARY
+          echo "- Charts generated: $CHART_COUNT" >> $GITHUB_STEP_SUMMARY
           echo "- Analysis logs: $LOG_COUNT" >> $GITHUB_STEP_SUMMARY
+          echo "- Twitter posts: $TWITTER_COUNT" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Show latest Twitter post if available
+          LATEST_TWITTER=$(find logs/ -name "twitter_posts_*.jsonl" -exec tail -1 {} \; 2>/dev/null | head -1)
+          if [ -n "$LATEST_TWITTER" ]; then
+            echo "### 🐦 Latest Twitter Post" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`json" >> $GITHUB_STEP_SUMMARY
+            echo "$LATEST_TWITTER" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          fi
         fi

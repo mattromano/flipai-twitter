@@ -62,15 +62,22 @@ class TwitterGenerator:
             response_metadata = data.get("response_metadata", {})
             artifacts = data.get("artifacts", [])
             
-            # Extract key insights from response
-            insights = self._extract_insights(response_text)
+            # Check if we have extracted Twitter text from the response
+            twitter_text = data.get("twitter_text", "")
             
-            # Generate tweet content using improved formatter
-            tweet_content = TweetFormatter.create_engaging_tweet(
-                response_text, response_metadata.get("analysis_type", "unknown")
-            )
+            if twitter_text:
+                # Use the extracted Twitter text as the main content
+                tweet_content = twitter_text.strip()
+                self.logger.info(f"Using extracted Twitter text: {len(tweet_content)} characters")
+            else:
+                # Fallback to generating tweet content using formatter
+                insights = self._extract_insights(response_text)
+                tweet_content = TweetFormatter.create_engaging_tweet(
+                    response_text, response_metadata.get("analysis_type", "unknown")
+                )
+                self.logger.info("No Twitter text found, using generated content")
             
-            # Add chat link if available
+            # Add chat link if available - Twitter will create a link card (doesn't count against character limit)
             chat_url = data.get("chat_url", "")
             if chat_url:
                 # Convert to shared format if it's a regular chat URL
@@ -81,11 +88,18 @@ class TwitterGenerator:
                 else:
                     shared_url = chat_url
                 
-                # Add chat link with available space
+                # Add descriptive text and URL - Twitter will create a link card
                 link_text = "\n\nHere's the chat link if you want to dive deeper"
-                if len(tweet_content) + len(link_text) + 50 <= self.max_tweet_length:  # Reserve 50 chars for URL
+                if len(tweet_content) + len(link_text) <= self.max_tweet_length:
                     tweet_content += link_text
-                    # Note: The actual URL will be added by Twitter as a link card
+                    # The actual URL will be appended by twitter_poster.py
+                else:
+                    # If text is too long, just add a simple reference
+                    simple_text = "\n\nChat link below ⬇️"
+                    if len(tweet_content) + len(simple_text) <= self.max_tweet_length:
+                        tweet_content += simple_text
+                    # The actual URL will be appended by twitter_poster.py
+                    self.logger.info("Using simple link reference due to space constraints")
             
             # Select best screenshot
             tweet_image = self._select_best_screenshot(artifacts, data.get("screenshots", []))

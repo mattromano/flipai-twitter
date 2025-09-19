@@ -115,58 +115,73 @@ class RobustFlipsideChatAutomation:
             self.automation_logger.log_error(f"Failed to setup Chrome WebDriver: {e}")
             return False
     
-    def setup_session_with_timeout(self, timeout: int = 60) -> bool:
-        """Set up session with timeout."""
+    def setup_session_with_timeout(self, timeout: int = 60, enable_fallback: bool = True) -> bool:
+        """Set up session with timeout and optional login fallback."""
         try:
             self.automation_logger.log_info("Initializing session manager")
             
             # Initialize session manager
             self.session_manager = SessionManager(self.driver)
             
-            # Load cookies from environment with timeout
-            self.automation_logger.log_info("Loading cookies from file")
-            start_time = time.time()
-            
-            while time.time() - start_time < timeout:
-                try:
-                    cookies = self.session_manager.load_cookies_from_file("flipside_cookies.txt")
-                    if cookies:
-                        self.automation_logger.log_success(f"Loaded {len(cookies)} cookies")
-                        break
-                    else:
-                        self.automation_logger.log_warning("No cookies found, retrying...")
-                        time.sleep(2)
-                except Exception as e:
-                    self.automation_logger.log_warning(f"Cookie loading error: {e}, retrying...")
-                    time.sleep(2)
+            if enable_fallback:
+                # Use the new fallback-enabled session setup
+                self.automation_logger.log_info("Setting up session with login fallback enabled")
+                max_login_wait = int(os.getenv('LOGIN_FALLBACK_TIMEOUT', '300'))  # 5 minutes default
+                
+                if self.session_manager.setup_session_with_fallback("flipside_cookies.txt", max_login_wait):
+                    self.automation_logger.log_success("Session setup with fallback completed")
+                    return True
+                else:
+                    self.automation_logger.log_error("Session setup with fallback failed")
+                    return False
             else:
-                self.automation_logger.log_error(f"Failed to load cookies within {timeout} seconds")
-                return False
-            
-            # Apply cookies to driver with timeout
-            self.automation_logger.log_info("Applying cookies to browser")
-            start_time = time.time()
-            
-            while time.time() - start_time < timeout:
-                try:
-                    if self.session_manager.apply_cookies_to_driver(cookies):
-                        self.automation_logger.log_success("Cookies applied successfully")
-                        break
-                    else:
-                        self.automation_logger.log_warning("Failed to apply cookies, retrying...")
+                # Use the original method without fallback
+                self.automation_logger.log_info("Setting up session without fallback")
+                
+                # Load cookies from environment with timeout
+                self.automation_logger.log_info("Loading cookies from file")
+                start_time = time.time()
+                
+                while time.time() - start_time < timeout:
+                    try:
+                        cookies = self.session_manager.load_cookies_from_file("flipside_cookies.txt")
+                        if cookies:
+                            self.automation_logger.log_success(f"Loaded {len(cookies)} cookies")
+                            break
+                        else:
+                            self.automation_logger.log_warning("No cookies found, retrying...")
+                            time.sleep(2)
+                    except Exception as e:
+                        self.automation_logger.log_warning(f"Cookie loading error: {e}, retrying...")
                         time.sleep(2)
-                except Exception as e:
-                    self.automation_logger.log_warning(f"Cookie application error: {e}, retrying...")
-                    time.sleep(2)
-            else:
-                self.automation_logger.log_error(f"Failed to apply cookies within {timeout} seconds")
-                return False
-            
-            # Wait for cookies to be processed
-            time.sleep(3)
-            
-            self.automation_logger.log_success("Session setup completed")
-            return True
+                else:
+                    self.automation_logger.log_error(f"Failed to load cookies within {timeout} seconds")
+                    return False
+                
+                # Apply cookies to driver with timeout
+                self.automation_logger.log_info("Applying cookies to browser")
+                start_time = time.time()
+                
+                while time.time() - start_time < timeout:
+                    try:
+                        if self.session_manager.apply_cookies_to_driver(cookies):
+                            self.automation_logger.log_success("Cookies applied successfully")
+                            break
+                        else:
+                            self.automation_logger.log_warning("Failed to apply cookies, retrying...")
+                            time.sleep(2)
+                    except Exception as e:
+                        self.automation_logger.log_warning(f"Cookie application error: {e}, retrying...")
+                        time.sleep(2)
+                else:
+                    self.automation_logger.log_error(f"Failed to apply cookies within {timeout} seconds")
+                    return False
+                
+                # Wait for cookies to be processed
+                time.sleep(3)
+                
+                self.automation_logger.log_success("Session setup completed")
+                return True
             
         except Exception as e:
             self.automation_logger.log_error(f"Failed to setup session: {e}")

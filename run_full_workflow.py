@@ -63,7 +63,8 @@ def run_full_workflow(custom_prompt: str = None, post_to_twitter: bool = True):
                     "response_text": "",
                     "screenshots": [],
                     "artifacts": [],
-                    "response_metadata": {}
+                    "response_metadata": {},
+                    "twitter_text": ""
                 }
                 
                 # Quick text extraction - focus on chat content, not sidebar
@@ -121,21 +122,16 @@ def run_full_workflow(custom_prompt: str = None, post_to_twitter: bool = True):
                         if "TWITTER_TEXT" in chat_text:
                             lines = chat_text.split('\n')
                             twitter_content = ""
-                            in_twitter_section = False
                             
                             for line in lines:
                                 line = line.strip()
-                                if "TWITTER_TEXT" in line:
-                                    in_twitter_section = True
-                                    continue
-                                elif in_twitter_section:
-                                    if line and not line.startswith("**") and not line.startswith("HTML_CHART"):
-                                        twitter_content += line + " "
-                                    elif line.startswith("HTML_CHART") or line.startswith("**"):
-                                        break
+                                if "TWITTER_TEXT:" in line:
+                                    # Extract content after "TWITTER_TEXT:"
+                                    twitter_content = line.split("TWITTER_TEXT:", 1)[1].strip()
+                                    break
                             
                             if twitter_content:
-                                results["twitter_text"] = twitter_content.strip()
+                                results["twitter_text"] = twitter_content
                                 logger.log_info(f"Extracted Twitter text: {len(twitter_content)} characters")
                 except Exception as e:
                     logger.log_warning(f"Failed to extract chat text: {e}")
@@ -190,62 +186,39 @@ def run_full_workflow(custom_prompt: str = None, post_to_twitter: bool = True):
         
         # Step 2: Twitter posting (if enabled)
         twitter_results = None
-            if post_to_twitter:
-                logger.log_info("🐦 Starting Twitter posting...")
+        if post_to_twitter:
+            logger.log_info("🐦 Starting Twitter posting...")
+            
+            try:
+                poster = TwitterPoster()
+                twitter_results = poster.post_from_analysis(analysis_results)
                 
-                try:
-                    poster = TwitterPoster()
-                    twitter_results = poster.post_from_analysis(analysis_results)
+                if twitter_results.get("success", False):
+                    logger.log_success("✅ Tweet posted successfully!")
+                    logger.log_info(f"📱 Tweet ID: {twitter_results['tweet_id']}")
                     
-                    if twitter_results.get("success", False):
-                        logger.log_success("✅ Tweet posted successfully!")
-                        logger.log_info(f"📱 Tweet ID: {twitter_results['tweet_id']}")
-                        
-                        # Log Twitter post data
-                        twitter_log_data = {
-                            "timestamp": datetime.now().isoformat(),
-                            "tweet_id": twitter_results['tweet_id'],
-                            "tweet_content": twitter_results.get("tweet_data", {}).get("content", ""),
-                            "image_path": twitter_results.get("tweet_data", {}).get("image", ""),
-                            "analysis_prompt": custom_prompt,
-                            "analysis_url": analysis_results.get("data", {}).get("chat_url", ""),
-                            "success": True
-                        }
-                        
-                        # Save to Twitter posts log
-                        twitter_log_file = f"logs/twitter_posts_{datetime.now().strftime('%Y%m%d')}.jsonl"
-                        with open(twitter_log_file, 'a', encoding='utf-8') as f:
-                            f.write(json.dumps(twitter_log_data, ensure_ascii=False) + '\n')
-                        
-                        logger.log_info(f"📝 Twitter post logged to: {twitter_log_file}")
-                        
-                    else:
-                        logger.log_warning(f"⚠️ Twitter posting failed: {twitter_results.get('error', 'Unknown error')}")
-                        
-                        # Log failed Twitter post
-                        twitter_log_data = {
-                            "timestamp": datetime.now().isoformat(),
-                            "tweet_id": None,
-                            "tweet_content": "",
-                            "image_path": "",
-                            "analysis_prompt": custom_prompt,
-                            "analysis_url": analysis_results.get("data", {}).get("chat_url", ""),
-                            "success": False,
-                            "error": twitter_results.get('error', 'Unknown error')
-                        }
-                        
-                        twitter_log_file = f"logs/twitter_posts_{datetime.now().strftime('%Y%m%d')}.jsonl"
-                        with open(twitter_log_file, 'a', encoding='utf-8') as f:
-                            f.write(json.dumps(twitter_log_data, ensure_ascii=False) + '\n')
-                        
-                except Exception as e:
-                    logger.log_error(f"❌ Twitter posting error: {e}")
-                    twitter_results = {
-                        "success": False,
-                        "error": str(e)
+                    # Log Twitter post data
+                    twitter_log_data = {
+                        "timestamp": datetime.now().isoformat(),
+                        "tweet_id": twitter_results['tweet_id'],
+                        "tweet_content": twitter_results.get("tweet_data", {}).get("content", ""),
+                        "image_path": twitter_results.get("tweet_data", {}).get("image", ""),
+                        "analysis_prompt": custom_prompt,
+                        "analysis_url": analysis_results.get("data", {}).get("chat_url", ""),
+                        "success": True
                     }
                     
-                    # Log error
+                    # Save to Twitter posts log
+                    twitter_log_file = f"logs/twitter_posts_{datetime.now().strftime('%Y%m%d')}.jsonl"
+                    with open(twitter_log_file, 'a', encoding='utf-8') as f:
+                        f.write(json.dumps(twitter_log_data, ensure_ascii=False) + '\n')
+                    
+                    logger.log_info(f"📝 Twitter post logged to: {twitter_log_file}")
+                    
+                else:
+                    logger.log_warning(f"⚠️ Twitter posting failed: {twitter_results.get('error', 'Unknown error')}")
+                    
+                    # Log failed Twitter post
                     twitter_log_data = {
                         "timestamp": datetime.now().isoformat(),
                         "tweet_id": None,
@@ -254,14 +227,37 @@ def run_full_workflow(custom_prompt: str = None, post_to_twitter: bool = True):
                         "analysis_prompt": custom_prompt,
                         "analysis_url": analysis_results.get("data", {}).get("chat_url", ""),
                         "success": False,
-                        "error": str(e)
+                        "error": twitter_results.get('error', 'Unknown error')
                     }
                     
                     twitter_log_file = f"logs/twitter_posts_{datetime.now().strftime('%Y%m%d')}.jsonl"
                     with open(twitter_log_file, 'a', encoding='utf-8') as f:
                         f.write(json.dumps(twitter_log_data, ensure_ascii=False) + '\n')
-            else:
-                logger.log_info("⏭️ Twitter posting skipped")
+                    
+            except Exception as e:
+                logger.log_error(f"❌ Twitter posting error: {e}")
+                twitter_results = {
+                    "success": False,
+                    "error": str(e)
+                }
+                
+                # Log error
+                twitter_log_data = {
+                    "timestamp": datetime.now().isoformat(),
+                    "tweet_id": None,
+                    "tweet_content": "",
+                    "image_path": "",
+                    "analysis_prompt": custom_prompt,
+                    "analysis_url": analysis_results.get("data", {}).get("chat_url", ""),
+                    "success": False,
+                    "error": str(e)
+                }
+                
+                twitter_log_file = f"logs/twitter_posts_{datetime.now().strftime('%Y%m%d')}.jsonl"
+                with open(twitter_log_file, 'a', encoding='utf-8') as f:
+                    f.write(json.dumps(twitter_log_data, ensure_ascii=False) + '\n')
+        else:
+            logger.log_info("⏭️ Twitter posting skipped")
         
         # Step 3: Summary
         logger.log_info("📋 Workflow Summary:")

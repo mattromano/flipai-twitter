@@ -8,6 +8,7 @@ import base64
 import json
 import logging
 import os
+import time
 from typing import Dict, List, Optional, Any
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.common.by import By
@@ -131,9 +132,16 @@ class SessionManager:
                 EC.presence_of_element_located((By.TAG_NAME, "body"))
             )
             
+            # Check if we're redirected to login page
+            current_url = self.driver.current_url
+            if 'login' in current_url.lower() or 'signin' in current_url.lower():
+                logger.warning(f"Session validation failed - redirected to login page: {current_url}")
+                return False
+            
             # Check for authentication indicators
             # Look for chat input or user-specific elements
             auth_indicators = [
+                "textarea[placeholder*='Ask FlipsideAI']",
                 "textarea[placeholder*='message']",
                 "textarea[data-testid='chat-input']",
                 "[data-testid='user-menu']",
@@ -269,3 +277,145 @@ class SessionManager:
         except Exception as e:
             logger.error(f"Failed to load cookies from file: {e}")
             return []
+    
+    def handle_login_fallback(self, max_wait_time: int = 300) -> bool:
+        """
+        Handle login fallback when cookies are expired.
+        This will wait for manual login and then save fresh cookies.
+        
+        Args:
+            max_wait_time: Maximum time to wait for manual login (seconds)
+            
+        Returns:
+            True if login was successful, False otherwise
+        """
+        try:
+            logger.warning("🍪 Cookies expired - initiating login fallback")
+            logger.info(f"⏰ Waiting up to {max_wait_time} seconds for manual login...")
+            
+            # Navigate to login page
+            self.driver.get("https://flipsidecrypto.xyz/chat/")
+            
+            start_time = time.time()
+            login_successful = False
+            
+            while time.time() - start_time < max_wait_time:
+                try:
+                    # Check if we're now authenticated
+                    if self.validate_session():
+                        logger.info("✅ Manual login detected - session is now valid")
+                        login_successful = True
+                        break
+                    
+                    # Check if we're still on login page
+                    current_url = self.driver.current_url
+                    if 'login' not in current_url.lower() and 'signin' not in current_url.lower():
+                        # We might have been redirected, check again
+                        time.sleep(2)
+                        continue
+                    
+                    # Wait a bit before checking again
+                    time.sleep(5)
+                    
+                    # Log progress every 30 seconds
+                    elapsed = int(time.time() - start_time)
+                    if elapsed % 30 == 0 and elapsed > 0:
+                        remaining = max_wait_time - elapsed
+                        logger.info(f"⏳ Still waiting for login... {remaining} seconds remaining")
+                
+                except Exception as e:
+                    logger.warning(f"Error during login wait: {e}")
+                    time.sleep(5)
+                    continue
+            
+            if login_successful:
+                # Save fresh cookies for future use
+                logger.info("💾 Saving fresh cookies for future use...")
+                if self.save_fresh_cookies():
+                    logger.info("✅ Fresh cookies saved successfully")
+                else:
+                    logger.warning("⚠️ Failed to save fresh cookies")
+                
+                return True
+            else:
+                logger.error(f"❌ Login timeout after {max_wait_time} seconds")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Login fallback failed: {e}")
+            return False
+    
+    
+    def save_fresh_cookies(self, filepath: str = "flipside_cookies.txt") -> bool:
+        """
+        Save fresh cookies in the format expected by the automation.
+        
+        Args:
+            filepath: Path to save cookies file
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Get current cookies
+            cookies = self.get_current_cookies()
+            if not cookies:
+                logger.warning("No cookies to save")
+                return False
+            
+            # Encode cookies for storage
+            encoded_cookies = self.encode_cookies_for_secret(cookies)
+            
+            # Save in the expected format
+            with open(filepath, 'w') as f:
+                f.write(f"FLIPSIDE_COOKIES={encoded_cookies}")
+            
+            logger.info(f"✅ Saved {len(cookies)} fresh cookies to {filepath}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to save fresh cookies: {e}")
+            return False
+    
+    def setup_session_with_fallback(self, cookie_file: str = "flipside_cookies.txt", 
+                                  max_login_wait: int = 300) -> bool:
+        """
+        Set up session with login fallback if cookies are expired.
+        
+        Args:
+            cookie_file: Path to cookie file
+            max_login_wait: Maximum time to wait for manual login (seconds)
+            
+        Returns:
+            True if session is valid, False otherwise
+        """
+        try:
+            # Try to load and apply cookies
+            logger.info("🍪 Attempting to load existing cookies...")
+            cookies = self.load_cookies_from_file(cookie_file)
+            
+            if cookies:
+                logger.info(f"📁 Loaded {len(cookies)} cookies from {cookie_file}")
+                
+                # Apply cookies to driver
+                if self.apply_cookies_to_driver(cookies):
+                    logger.info("✅ Cookies applied successfully")
+                    
+                    # Validate session
+                    if self.validate_session():
+                        logger.info("✅ Session validation successful - cookies are valid")
+                        return True
+                    else:
+                        logger.warning("⚠️ Session validation failed - cookies may be expired")
+                else:
+                    logger.warning("⚠️ Failed to apply cookies")
+            else:
+                logger.warning("⚠️ No cookies found in file")
+            
+            # If we get here, cookies are invalid or missing
+            logger.info("🔄 Initiating login fallback...")
+            return self.handle_login_fallback(max_login_wait)
+            
+        except Exception as e:
+            logger.error(f"Session setup with fallback failed: {e}")
+            return False

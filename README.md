@@ -29,7 +29,28 @@ A streamlined automation system that generates DeFi analysis content from Flipsi
    
    # Full workflow (analysis + Twitter posting)
    python run_full_workflow.py
+   
+   # With custom prompt
+   python run_full_workflow.py --prompt "Your custom analysis prompt"
    ```
+
+## 🔐 Authentication & Login Fallback
+
+The system includes **login fallback** for expired cookies:
+
+- ✅ **Self-Healing**: Automatically detects expired cookies
+- ✅ **Manual Login**: Waits for you to log in manually (5 minutes timeout)
+- ✅ **Auto-Save**: Saves fresh cookies automatically
+- ✅ **Seamless**: Continues automation after login
+
+**When cookies expire:**
+1. Browser opens automatically (non-headless)
+2. You log in manually with your credentials
+3. System detects successful login
+4. Fresh cookies are saved automatically
+5. Automation continues seamlessly
+
+See [LOGIN_FALLBACK_GUIDE.md](LOGIN_FALLBACK_GUIDE.md) for detailed information.
 
 ## 📁 Project Structure
 
