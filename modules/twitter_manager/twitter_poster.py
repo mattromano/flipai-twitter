@@ -28,8 +28,8 @@ class TwitterPoster:
         """Setup Twitter API client."""
         try:
             # Get credentials from environment
-            api_key = os.getenv("TWITTER_API_KEY")
-            api_secret = os.getenv("TWITTER_API_SECRET")
+            api_key = os.getenv("TWITTER_API_KEY") or os.getenv("TWITTER_CONSUMER_KEY")
+            api_secret = os.getenv("TWITTER_API_SECRET") or os.getenv("TWITTER_CONSUMER_SECRET")
             access_token = os.getenv("TWITTER_ACCESS_TOKEN")
             access_token_secret = os.getenv("TWITTER_ACCESS_TOKEN_SECRET")
             bearer_token = os.getenv("TWITTER_BEARER_TOKEN")

@@ -34,7 +34,7 @@ class MainWorkflow:
     def __init__(self):
         self.logger = AutomationLogger()
         self.chat_manager = FlipsideChatManager()
-        self.twitter_poster = TwitterPoster()
+        self.twitter_poster = None  # Initialize only when needed
         self.tweet_preview = TweetPreviewGenerator()
     
     def run_analysis_only(self, prompt: str, timeout: int = 600) -> dict:
@@ -43,50 +43,26 @@ class MainWorkflow:
             self.logger.log_info("🚀 Starting Flipside AI Analysis Workflow")
             self.logger.log_info("=" * 60)
             
-            # Step 1: Initialize
-            if not self.chat_manager.initialize():
-                return {"success": False, "error": "Failed to initialize chat manager"}
+            # Run the complete analysis workflow with all features
+            analysis_result = self.chat_manager.run_analysis(prompt, timeout)
             
-            # Step 2: Authenticate
-            if not self.chat_manager.authenticate():
-                return {"success": False, "error": "Failed to authenticate"}
-            
-            # Step 3: Navigate to chat
-            if not self.chat_manager.navigate_to_chat():
-                return {"success": False, "error": "Failed to navigate to chat"}
-            
-            # Step 4: Submit prompt
-            if not self.chat_manager.submit_prompt(prompt):
-                return {"success": False, "error": "Failed to submit prompt"}
-            
-            # Step 5: Wait for response
-            if not self.chat_manager.wait_for_response(timeout):
-                self.logger.log_warning("⚠️ Response timeout, but continuing with data capture")
-            
-            # Step 6: Extract data
-            analysis_data = self.chat_manager.extract_data()
-            
-            # Step 7: Capture final screenshot
-            screenshot_path = self.chat_manager.capture_final_screenshot()
-            if screenshot_path:
-                analysis_data["screenshots"] = [screenshot_path]
-            
-            # Step 8: Save results
-            self._save_analysis_results(analysis_data, prompt)
-            
-            self.logger.log_success("✅ Analysis workflow completed successfully!")
-            return {
-                "success": True,
-                "data": analysis_data,
-                "timestamp": datetime.now().isoformat()
-            }
+            if analysis_result["success"]:
+                # Save results
+                self._save_analysis_results(analysis_result["data"], prompt)
+                
+                self.logger.log_success("✅ Analysis workflow completed successfully!")
+                return {
+                    "success": True,
+                    "data": analysis_result["data"],
+                    "timestamp": datetime.now().isoformat()
+                }
+            else:
+                self.logger.log_error(f"❌ Analysis failed: {analysis_result.get('error', 'Unknown error')}")
+                return {"success": False, "error": analysis_result.get('error', 'Unknown error')}
             
         except Exception as e:
             self.logger.log_error(f"Analysis workflow failed: {e}")
             return {"success": False, "error": str(e)}
-        
-        finally:
-            self.chat_manager.cleanup()
     
     def run_full_workflow(self, prompt: str, timeout: int = 600, post_to_twitter: bool = True) -> dict:
         """Run complete workflow: analysis + Twitter posting."""
@@ -114,6 +90,9 @@ class MainWorkflow:
             twitter_result = None
             if post_to_twitter:
                 self.logger.log_info("🐦 Posting to Twitter...")
+                # Initialize Twitter poster only when needed
+                if not self.twitter_poster:
+                    self.twitter_poster = TwitterPoster()
                 twitter_result = self.twitter_poster.post_from_analysis(analysis_result)
                 
                 if twitter_result.get("success", False):
