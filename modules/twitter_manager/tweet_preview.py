@@ -29,7 +29,7 @@ class TweetPreviewGenerator:
             twitter_text = analysis_data.get("data", {}).get("twitter_text", "")
             chat_url = analysis_data.get("data", {}).get("chat_url", "")
             timestamp = analysis_data.get("timestamp", datetime.now().isoformat())
-            c
+            character_count = analysis_data.get("data", {}).get("character_count", 0)
             # Create tweet content
             tweet_content = f"🔍 Fresh crypto analysis from FlipsideAI:\n\n{twitter_text}"
             

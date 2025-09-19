@@ -288,8 +288,33 @@ class FlipsideChatManager:
             
             while time.time() - start_time < timeout:
                 try:
+                    # Look for the new analysis conclusion marker
+                    conclusion_found = False
+                    conclusion_selectors = [
+                        "//div[contains(text(), 'THIS_CONCLUDES_THE_ANALYSIS')]",
+                        "//div[contains(text(), '**THIS_CONCLUDES_THE_ANALYSIS**')]",
+                        "//span[contains(text(), 'THIS_CONCLUDES_THE_ANALYSIS')]",
+                        "//p[contains(text(), 'THIS_CONCLUDES_THE_ANALYSIS')]"
+                    ]
+                    
+                    for selector in conclusion_selectors:
+                        try:
+                            elements = self.driver.find_elements(By.XPATH, selector)
+                            for element in elements:
+                                if element.is_displayed() and element.text.strip():
+                                    conclusion_found = True
+                                    self.logger.log_success("Analysis conclusion marker found!")
+                                    break
+                            if conclusion_found:
+                                break
+                        except:
+                            continue
+                    
                     # Look for Twitter text output (indicates response started)
+                    twitter_found = False
                     twitter_selectors = [
+                        "//div[contains(text(), 'TWITTER_TEXT:')]",
+                        "//div[contains(text(), 'Add a quick 260 character summary')]",
                         "[data-testid='twitter-text']",
                         ".twitter-text",
                         ".twitter-output",
@@ -297,10 +322,12 @@ class FlipsideChatManager:
                         "div:contains('Twitter')"
                     ]
                     
-                    twitter_found = False
                     for selector in twitter_selectors:
                         try:
-                            elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                            if selector.startswith('//'):
+                                elements = self.driver.find_elements(By.XPATH, selector)
+                            else:
+                                elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
                             for element in elements:
                                 if element.is_displayed() and element.text.strip():
                                     twitter_found = True
@@ -356,8 +383,13 @@ class FlipsideChatManager:
                         if "stale element" in str(e).lower():
                             continue
                     
+                    # Response is complete if we found the conclusion marker
+                    if conclusion_found:
+                        self.logger.log_success("Analysis conclusion marker found - response complete!")
+                        response_complete = True
+                        break
                     # Response is complete if chat input is editable again
-                    if chat_input_editable and (twitter_found or charts_found):
+                    elif chat_input_editable and (twitter_found or charts_found):
                         self.logger.log_success("Chat input is editable - response complete!")
                         response_complete = True
                         break
@@ -424,8 +456,10 @@ class FlipsideChatManager:
                 except:
                     pass
             
-            # Extract Twitter text output with comprehensive selectors
+            # Extract Twitter text output with new format
             twitter_selectors = [
+                "//div[contains(text(), 'TWITTER_TEXT:')]",
+                "//div[contains(text(), 'Add a quick 260 character summary')]",
                 "//div[contains(text(), 'TWITTER_TEXT')]",
                 "//div[contains(text(), '**TWITTER_TEXT**')]",
                 "[data-testid='twitter-text']",
@@ -457,20 +491,23 @@ class FlipsideChatManager:
                         if element.is_displayed() and element.text.strip():
                             text_content = element.text.strip()
                             
-                            # Look for TWITTER_TEXT specifically
-                            if "TWITTER_TEXT" in text_content or "**TWITTER_TEXT**" in text_content:
-                                # Extract just the Twitter content part
+                            # Look for new Twitter text format: "TWITTER_TEXT: [content]"
+                            if "TWITTER_TEXT:" in text_content:
+                                # Extract content after "TWITTER_TEXT:"
                                 lines = text_content.split('\n')
                                 twitter_content = ""
-                                in_twitter_section = False
                                 
                                 for line in lines:
-                                    if "TWITTER_TEXT" in line or "**TWITTER_TEXT**" in line:
-                                        in_twitter_section = True
-                                        continue
-                                    elif in_twitter_section and line.strip():
-                                        # Stop at HTML_CHART or other sections
-                                        if (line.startswith("HTML_CHART") or 
+                                    if "TWITTER_TEXT:" in line:
+                                        # Extract everything after "TWITTER_TEXT:"
+                                        twitter_part = line.split("TWITTER_TEXT:")[1].strip()
+                                        if twitter_part:
+                                            twitter_content += twitter_part + " "
+                                    elif twitter_content and line.strip():
+                                        # Continue collecting until we hit a section break
+                                        if (line.startswith("**THIS_CONCLUDES_THE_ANALYSIS**") or
+                                            line.startswith("THIS_CONCLUDES_THE_ANALYSIS") or
+                                            line.startswith("HTML_CHART") or 
                                             line.startswith("**HTML_CHART**") or
                                             line.startswith("View Report") or
                                             line.startswith("Based on my comprehensive analysis")):
@@ -484,6 +521,37 @@ class FlipsideChatManager:
                                     results["response_text"] = twitter_content.strip()
                                     self.logger.log_success(f"Extracted Twitter text: {len(results['twitter_text'])} characters")
                                     break
+                            
+                            # Look for old TWITTER_TEXT format as fallback
+                            elif "TWITTER_TEXT" in text_content or "**TWITTER_TEXT**" in text_content:
+                                # Extract just the Twitter content part
+                                lines = text_content.split('\n')
+                                twitter_content = ""
+                                in_twitter_section = False
+                                
+                                for line in lines:
+                                    if "TWITTER_TEXT" in line or "**TWITTER_TEXT**" in line:
+                                        in_twitter_section = True
+                                        continue
+                                    elif in_twitter_section and line.strip():
+                                        # Stop at conclusion marker or other sections
+                                        if (line.startswith("**THIS_CONCLUDES_THE_ANALYSIS**") or
+                                            line.startswith("THIS_CONCLUDES_THE_ANALYSIS") or
+                                            line.startswith("HTML_CHART") or 
+                                            line.startswith("**HTML_CHART**") or
+                                            line.startswith("View Report") or
+                                            line.startswith("Based on my comprehensive analysis")):
+                                            break
+                                        # Skip empty lines and section headers
+                                        if line.strip() and not line.startswith("**") and not line.startswith("##"):
+                                            twitter_content += line.strip() + " "
+                                
+                                if twitter_content.strip():
+                                    results["twitter_text"] = twitter_content.strip()
+                                    results["response_text"] = twitter_content.strip()
+                                    self.logger.log_success(f"Extracted Twitter text: {len(results['twitter_text'])} characters")
+                                    break
+                            
                             elif not results["response_text"] and len(text_content) > 50:
                                 # Fallback to any substantial text content that looks like a response
                                 if ("analysis" in text_content.lower() or 
@@ -619,13 +687,39 @@ class FlipsideChatManager:
                 except:
                     continue
             
+            # Check if analysis conclusion marker was found
+            conclusion_found = False
+            try:
+                conclusion_selectors = [
+                    "//div[contains(text(), 'THIS_CONCLUDES_THE_ANALYSIS')]",
+                    "//div[contains(text(), '**THIS_CONCLUDES_THE_ANALYSIS**')]",
+                    "//span[contains(text(), 'THIS_CONCLUDES_THE_ANALYSIS')]",
+                    "//p[contains(text(), 'THIS_CONCLUDES_THE_ANALYSIS')]"
+                ]
+                
+                for selector in conclusion_selectors:
+                    try:
+                        elements = self.driver.find_elements(By.XPATH, selector)
+                        for element in elements:
+                            if element.is_displayed() and element.text.strip():
+                                conclusion_found = True
+                                break
+                        if conclusion_found:
+                            break
+                    except:
+                        continue
+            except:
+                pass
+            
             # Create response metadata
             results["response_metadata"] = {
                 "word_count": len(results["response_text"].split()) if results["response_text"] else 0,
                 "has_charts": any("chart" in a["type"] for a in results["artifacts"]),
                 "has_tables": any("table" in a["type"] for a in results["artifacts"]),
                 "has_code": "code" in results["response_text"].lower() if results["response_text"] else False,
-                "analysis_type": "market_analysis"
+                "analysis_type": "market_analysis",
+                "conclusion_marker_found": conclusion_found,
+                "twitter_text_format": "new" if "TWITTER_TEXT:" in results.get("response_text", "") else "old"
             }
             
             self.logger.log_success(f"✅ Data extracted: {len(results['response_text'])} chars, {len(results['artifacts'])} artifacts")
