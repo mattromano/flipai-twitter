@@ -1,7 +1,17 @@
+# Core web automation
 selenium>=4.15.0
 webdriver-manager>=4.0.0
+undetected-chromedriver>=3.5.0
+
+# Environment and configuration
 python-dotenv>=1.0.0
+
+# HTTP requests and API
 requests>=2.31.0
-pillow>=10.0.0
 tweepy>=4.14.0
+
+# Image processing and screenshots
+pillow>=10.0.0
+
+# Utility libraries
 pyperclip>=1.8.0
