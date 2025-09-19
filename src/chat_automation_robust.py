@@ -124,12 +124,12 @@ class RobustFlipsideChatAutomation:
             self.session_manager = SessionManager(self.driver)
             
             # Load cookies from environment with timeout
-            self.automation_logger.log_info("Loading cookies from environment")
+            self.automation_logger.log_info("Loading cookies from file")
             start_time = time.time()
             
             while time.time() - start_time < timeout:
                 try:
-                    cookies = self.session_manager.load_cookies_from_env()
+                    cookies = self.session_manager.load_cookies_from_file("flipside_cookies.txt")
                     if cookies:
                         self.automation_logger.log_success(f"Loaded {len(cookies)} cookies")
                         break
@@ -1333,8 +1333,8 @@ class RobustFlipsideChatAutomation:
             self.automation_logger.end_step(True, "Prompt submitted successfully")
             
             # Step 8: Response Waiting
-            self.automation_logger.start_step(AutomationStep.RESPONSE_WAITING, "Waiting for complete AI response with charts (2 min timeout)")
-            if not self.wait_for_complete_response_with_timeout(120):
+            self.automation_logger.start_step(AutomationStep.RESPONSE_WAITING, "Waiting for complete AI response with charts (4 min timeout)")
+            if not self.wait_for_complete_response_with_timeout(240):
                 self.automation_logger.log_warning("Complete response timeout, but continuing...")
             self.automation_logger.end_step(True, "AI response processing completed")
             

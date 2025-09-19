@@ -70,6 +70,23 @@ class TwitterGenerator:
                 response_text, response_metadata.get("analysis_type", "unknown")
             )
             
+            # Add chat link if available
+            chat_url = data.get("chat_url", "")
+            if chat_url:
+                # Convert to shared format if it's a regular chat URL
+                if "/chat/" in chat_url and "/shared/chats/" not in chat_url:
+                    # Extract the chat ID and convert to shared format
+                    chat_id = chat_url.split("/chat/")[-1]
+                    shared_url = f"https://flipsidecrypto.xyz/chat/shared/chats/{chat_id}"
+                else:
+                    shared_url = chat_url
+                
+                # Add chat link with available space
+                link_text = "\n\nHere's the chat link if you want to dive deeper"
+                if len(tweet_content) + len(link_text) + 50 <= self.max_tweet_length:  # Reserve 50 chars for URL
+                    tweet_content += link_text
+                    # Note: The actual URL will be added by Twitter as a link card
+            
             # Select best screenshot
             tweet_image = self._select_best_screenshot(artifacts, data.get("screenshots", []))
             
@@ -243,6 +260,9 @@ class TwitterGenerator:
         
         # Join parts
         tweet_content = "\n\n".join(tweet_parts)
+        
+        # Add chat link if available (this will be added by the main generator)
+        # The chat link will be added in the main generate_tweet_from_analysis method
         
         # Add hashtags (fit as many as possible)
         available_space = self.max_tweet_length - len(tweet_content) - 1

@@ -13,17 +13,33 @@ A streamlined automation system that generates DeFi analysis content from Flipsi
    pip install -r requirements.txt
    ```
 
-2. **Run the Automation**
+2. **Setup Twitter API (Optional)**
    ```bash
+   # Configure Twitter API credentials
+   python setup_twitter.py
+   
+   # Test Twitter integration
+   python test_twitter_integration.py
+   ```
+
+3. **Run the Automation**
+   ```bash
+   # Analysis only
    python run_automation_with_logging.py
+   
+   # Full workflow (analysis + Twitter posting)
+   python run_full_workflow.py
    ```
 
 ## 📁 Project Structure
 
 ### Core Files
 - `run_automation_with_logging.py` - Main automation script
+- `run_full_workflow.py` - Complete workflow (analysis + Twitter)
+- `twitter_poster.py` - Twitter posting system
 - `src/chat_automation_robust.py` - Core automation logic
 - `src/automation_logger.py` - Logging system
+- `src/twitter_generator.py` - Twitter content generation
 - `config/prompts.py` - Analysis prompts
 
 ### Generated Outputs
@@ -42,7 +58,8 @@ A streamlined automation system that generates DeFi analysis content from Flipsi
 3. **Response Processing** - Waits for AI response with charts
 4. **Result Capture** - Extracts text and identifies visualizations
 5. **Artifact Screenshot** - Publishes and screenshots the clean artifact view
-6. **Output Generation** - Creates Twitter-ready content
+6. **Twitter Generation** - Creates engaging tweet content from analysis
+7. **Twitter Posting** - Posts to Twitter with image (optional)
 
 ## 📊 Performance
 
@@ -56,15 +73,32 @@ A streamlined automation system that generates DeFi analysis content from Flipsi
 - ✅ **Fast Performance** - Optimized for speed
 - ✅ **Robust Error Handling** - Continues on timeouts
 - ✅ **Clean Screenshots** - Published artifact views
-- ✅ **Twitter Integration** - Ready for posting
+- ✅ **Twitter Integration** - Automatic posting with images
+- ✅ **Smart Content Generation** - AI-powered tweet creation
 - ✅ **Comprehensive Logging** - Full workflow tracking
 
 ## 📝 Usage
 
+### Basic Usage
 The automation runs with the default prompt:
 > "Give me a full analysis comparing the supply of USDT and USDC across all the top blockchains"
 
-To use a different prompt, edit the `custom_prompt` variable in `run_automation_with_logging.py`.
+### Custom Prompts
+```bash
+# Use custom prompt
+python run_full_workflow.py --prompt "Your custom analysis prompt here"
+
+# Skip Twitter posting
+python run_full_workflow.py --no-twitter
+
+# Enable debug mode
+python run_full_workflow.py --debug
+```
+
+### Twitter Setup
+1. Get Twitter API credentials from https://developer.twitter.com/
+2. Run setup: `python setup_twitter.py`
+3. Test integration: `python test_twitter_integration.py`
 
 ## 🔍 Output Files
 

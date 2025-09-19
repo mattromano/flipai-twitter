@@ -251,7 +251,17 @@ class SessionManager:
         """
         try:
             with open(filepath, 'r') as f:
-                cookies = json.load(f)
+                content = f.read().strip()
+            
+            # Check if it's a base64 encoded format (starts with FLIPSIDE_COOKIES=)
+            if content.startswith('FLIPSIDE_COOKIES='):
+                # Extract the base64 part after the equals sign
+                encoded_cookies = content.split('=', 1)[1]
+                # Decode the base64 string
+                cookies = self.decode_cookies_from_secret(encoded_cookies)
+            else:
+                # Try to load as regular JSON
+                cookies = json.loads(content)
             
             logger.info(f"Loaded {len(cookies)} cookies from {filepath}")
             return cookies

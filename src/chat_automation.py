@@ -164,11 +164,11 @@ class FlipsideChatAutomation:
             # Initialize session manager
             self.session_manager = SessionManager(self.driver)
             
-            # Load cookies from environment
+            # Load cookies from file
             try:
-                cookies = self.session_manager.load_cookies_from_env()
+                cookies = self.session_manager.load_cookies_from_file("flipside_cookies.txt")
                 if not cookies:
-                    self.logger.error("No cookies found in environment")
+                    self.logger.error("No cookies found in file")
                     return False
                 
                 # Apply cookies to driver
