@@ -1,0 +1,94 @@
+name: Daily Flipside Chat Analysis
+
+on:
+  schedule:
+    # Run daily at 9 AM UTC
+    - cron: '0 9 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Create virtual environment
+      run: python -m venv venv
+      
+    - name: Activate virtual environment and install dependencies
+      run: |
+        source venv/bin/activate
+        pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Set up Chrome and ChromeDriver
+      uses: browser-actions/setup-chrome@v1
+      with:
+        chrome-version: 'latest'
+        
+    - name: Run Flipside Chat Analysis
+      env:
+        FLIPSIDE_COOKIES: ${{ secrets.FLIPSIDE_COOKIES }}
+        DEBUG_MODE: 'true'
+        ANALYSIS_TIMEOUT: '90'
+      run: |
+        source venv/bin/activate
+        python src/chat_automation.py
+        
+    - name: Upload screenshots as artifacts
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: analysis-screenshots-${{ github.run_number }}
+        path: screenshots/
+        retention-days: 30
+        
+    - name: Upload logs as artifacts
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: analysis-logs-${{ github.run_number }}
+        path: logs/
+        retention-days: 7
+        
+    - name: Upload analysis results as artifacts
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: analysis-results-${{ github.run_number }}
+        path: |
+          logs/analysis_*.json
+          logs/daily_summary_*.jsonl
+        retention-days: 30
+        
+    - name: Create analysis summary
+      if: always()
+      run: |
+        echo "## 📊 Analysis Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Run Number:** ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Timestamp:** $(date)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if [ -d "logs" ]; then
+          echo "### 📁 Generated Files" >> $GITHUB_STEP_SUMMARY
+          echo "- Screenshots: \`screenshots/\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Analysis Logs: \`logs/analysis_*.json\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Daily Summary: \`logs/daily_summary_*.jsonl\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Count files
+          SCREENSHOT_COUNT=$(find screenshots/ -name "*.png" 2>/dev/null | wc -l || echo "0")
+          LOG_COUNT=$(find logs/ -name "analysis_*.json" 2>/dev/null | wc -l || echo "0")
+          
+          echo "### 📈 Statistics" >> $GITHUB_STEP_SUMMARY
+          echo "- Screenshots captured: $SCREENSHOT_COUNT" >> $GITHUB_STEP_SUMMARY
+          echo "- Analysis logs: $LOG_COUNT" >> $GITHUB_STEP_SUMMARY
+        fi

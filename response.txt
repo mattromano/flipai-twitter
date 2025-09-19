@@ -1,0 +1,35 @@
+I'll analyze stablecoin supply and usage patterns to identify which stablecoins are gaining adoption and what this reveals about market sentiment. Let me start by exploring the available stablecoin data.Great! I found several relevant tables. Let me also check for the main stablecoin metrics table that was mentioned in the system prompt.Perfect! Now let me examine the schema of the main stablecoin metrics table to understand the available data.Now let me also check the stablecoin flows table to get transaction volume data.Perfect! Now I have the data I need. Let me start by analyzing the top stablecoins by market cap and recent trends.Now let me analyze growth trends over the past 90 days to see which stablecoins are gaining adoption.Now let me get daily transaction volume data to understand usage patterns.Let me get a time series view of the major stablecoins to better understand adoption trends.Now let me create the Twitter post and visualization. Based on my analysis, here are the key insights:
+
+**TWITTER_TEXT:** 📊 Stablecoin supply surge: USDe exploded 163% to $108B in 90 days, Falcon USD up 236% to $13B. Meanwhile traditional leaders USDT ($1.36T) & USDC ($580B) show steady growth. New crypto-backed stablecoins gaining massive adoption vs fiat-backed dominance.
+
+**HTML_CHART:**Based on my comprehensive analysis of stablecoin supply and usage patterns, here are the key insights about which stablecoins are gaining adoption and what this reveals about market sentiment:
+
+## Key Findings:
+
+**Market Leaders Maintain Dominance:**
+- USDT remains the undisputed leader with $1.36T market cap across 88 chains
+- USDC holds second place at $580B across 107 chains (most chains)
+- Both show steady, mature growth patterns
+
+**Explosive Growth in Crypto-Backed Stablecoins:**
+- **Ethena USDe** surged 163% in 90 days to $108B, becoming the 3rd largest stablecoin
+- **Falcon USD (USDf)** grew 236% to $13B 
+- **Sky Dollar (USDS)** reached $36B market cap
+- These represent a shift toward yield-bearing and more decentralized stablecoin models
+
+**Transaction Volume Leadership:**
+- Base and Ethereum dominate with ~$64B and ~$61B daily volumes respectively
+- This shows strong adoption on both L1 Ethereum and emerging L2s
+- BSC, Solana, and Avalanche follow with significant volumes
+
+## Market Sentiment Implications:
+
+1. **Diversification from Traditional Stablecoins:** The explosive growth of crypto-backed stablecoins suggests users are seeking alternatives to purely fiat-backed models, potentially due to concerns about centralization and yield opportunities.
+
+2. **Yield-Seeking Behavior:** USDe's growth indicates strong demand for stablecoins that offer native yield through delta-neutral strategies.
+
+3. **Multi-Chain Adoption:** High transaction volumes across multiple blockchains show users are comfortable with cross-chain stablecoin usage.
+
+4. **Innovation Premium:** New mechanisms (crypto-backed, yield-bearing) are capturing significant market share despite being riskier than traditional fiat-backed models.
+
+This suggests a maturing market where users are becoming more sophisticated, seeking both stability and yield while diversifying away from single points of failure in traditional fiat-backed stablecoins.
