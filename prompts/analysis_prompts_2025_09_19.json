@@ -1,0 +1,380 @@
+{
+    "prompts": [
+      {
+        "id": 1,
+        "category": "Ecosystem Growth & User Quality Analysis",
+        "difficulty": "intermediate",
+        "expected_charts": ["line", "bar"],
+        "prompt": "Show me the relationship between quality users (score 4+) and total DEX volume across Ethereum, Arbitrum, and Base over the last 30 days"
+      },
+      {
+        "id": 2,
+        "category": "Ecosystem Growth & User Quality Analysis",
+        "difficulty": "advanced",
+        "expected_charts": ["bubble"],
+        "prompt": "Create a bubble chart showing protocol adoption where bubble size represents TVL, x-axis is quality user count, and y-axis is transaction volume"
+      },
+      {
+        "id": 3,
+        "category": "Ecosystem Growth & User Quality Analysis",
+        "difficulty": "intermediate",
+        "expected_charts": ["bar", "distribution"],
+        "prompt": "Visualize the user score distribution across different chains - how does Solana's user quality compare to Ethereum's?"
+      },
+      {
+        "id": 4,
+        "category": "Ecosystem Growth & User Quality Analysis",
+        "difficulty": "intermediate",
+        "expected_charts": ["line"],
+        "prompt": "Track the 7-day rolling average of new quality users (moving from 0-3 to 4+) across top 5 EVM chains"
+      },
+      {
+        "id": 5,
+        "category": "Ecosystem Growth & User Quality Analysis",
+        "difficulty": "intermediate",
+        "expected_charts": ["line", "area"],
+        "prompt": "Compare bridge inflow vs outflow patterns for Arbitrum and Optimism with net flow visualization"
+      },
+      {
+        "id": 6,
+        "category": "Protocol Performance Deep Dives",
+        "difficulty": "intermediate",
+        "expected_charts": ["line", "bar"],
+        "prompt": "Analyze Uniswap v2 vs v3 adoption using quality user engagement and volume metrics over time"
+      },
+      {
+        "id": 7,
+        "category": "Protocol Performance Deep Dives",
+        "difficulty": "intermediate",
+        "expected_charts": ["bar", "line"],
+        "prompt": "Show me which DeFi protocols are gaining quality users fastest on Base chain in the last 60 days"
+      },
+      {
+        "id": 8,
+        "category": "Protocol Performance Deep Dives",
+        "difficulty": "advanced",
+        "expected_charts": ["heatmap"],
+        "prompt": "Create a heatmap of protocol activity by day of week - which protocols see weekend vs weekday preference?"
+      },
+      {
+        "id": 9,
+        "category": "Protocol Performance Deep Dives",
+        "difficulty": "intermediate",
+        "expected_charts": ["scatter", "line"],
+        "prompt": "Visualize the correlation between CEX withdrawal volume and DEX trading activity on Ethereum"
+      },
+      {
+        "id": 10,
+        "category": "Protocol Performance Deep Dives",
+        "difficulty": "intermediate",
+        "expected_charts": ["line", "bar"],
+        "prompt": "Track liquid staking protocol growth across chains using TVL and quality user metrics"
+      },
+      {
+        "id": 11,
+        "category": "Cross-Chain Comparative Analysis",
+        "difficulty": "intermediate",
+        "expected_charts": ["line", "dual-axis"],
+        "prompt": "Compare gas fee trends vs quality user activity across Ethereum, Polygon, and Arbitrum"
+      },
+      {
+        "id": 12,
+        "category": "Cross-Chain Comparative Analysis",
+        "difficulty": "advanced",
+        "expected_charts": ["sankey", "flow"],
+        "prompt": "Show the migration patterns of quality users between chains using bridge data"
+      },
+      {
+        "id": 13,
+        "category": "Cross-Chain Comparative Analysis",
+        "difficulty": "intermediate",
+        "expected_charts": ["stacked-bar", "line"],
+        "prompt": "Visualize stablecoin transfer volume as a percentage of total transfer volume across different chains"
+      },
+      {
+        "id": 14,
+        "category": "Cross-Chain Comparative Analysis",
+        "difficulty": "advanced",
+        "expected_charts": ["dashboard", "multi-metric"],
+        "prompt": "Create a multi-chain dashboard showing NFT trading activity correlation with overall chain health"
+      },
+      {
+        "id": 15,
+        "category": "Cross-Chain Comparative Analysis",
+        "difficulty": "intermediate",
+        "expected_charts": ["bar", "line"],
+        "prompt": "Compare yield farming protocol performance across Avalanche, BSC, and Polygon"
+      },
+      {
+        "id": 16,
+        "category": "User Behavior & Cohort Analysis",
+        "difficulty": "advanced",
+        "expected_charts": ["funnel", "correlation"],
+        "prompt": "Analyze the journey from low-quality to high-quality users - what activities correlate with score increases?"
+      },
+      {
+        "id": 17,
+        "category": "User Behavior & Cohort Analysis",
+        "difficulty": "advanced",
+        "expected_charts": ["cohort", "retention"],
+        "prompt": "Create cohort retention charts for users who first bridged to Arbitrum in different months"
+      },
+      {
+        "id": 18,
+        "category": "User Behavior & Cohort Analysis",
+        "difficulty": "intermediate",
+        "expected_charts": ["radar", "comparison"],
+        "prompt": "Visualize the activity patterns of NFT collectors vs DeFi power users using component scores"
+      },
+      {
+        "id": 19,
+        "category": "User Behavior & Cohort Analysis",
+        "difficulty": "intermediate",
+        "expected_charts": ["bar", "stacked"],
+        "prompt": "Show governance participation rates by user score segments across different protocols"
+      },
+      {
+        "id": 20,
+        "category": "User Behavior & Cohort Analysis",
+        "difficulty": "intermediate",
+        "expected_charts": ["line", "seasonal"],
+        "prompt": "Track seasonal patterns in user acquisition and retention across major chains"
+      },
+      {
+        "id": 21,
+        "category": "Market Dynamics & Trends",
+        "difficulty": "advanced",
+        "expected_charts": ["scatter", "correlation"],
+        "prompt": "Correlate trending Twitter topics with on-chain protocol activity spikes"
+      },
+      {
+        "id": 22,
+        "category": "Market Dynamics & Trends",
+        "difficulty": "advanced",
+        "expected_charts": ["dual-axis", "volatility"],
+        "prompt": "Visualize the relationship between market volatility and quality user trading behavior"
+      },
+      {
+        "id": 23,
+        "category": "Market Dynamics & Trends",
+        "difficulty": "intermediate",
+        "expected_charts": ["line", "event-overlay"],
+        "prompt": "Show how major news events (from trending topics) impact cross-chain bridge volume"
+      },
+      {
+        "id": 24,
+        "category": "Market Dynamics & Trends",
+        "difficulty": "advanced",
+        "expected_charts": ["dashboard", "sentiment"],
+        "prompt": "Create a sentiment vs activity dashboard using Twitter trends and protocol engagement"
+      },
+      {
+        "id": 25,
+        "category": "Market Dynamics & Trends",
+        "difficulty": "advanced",
+        "expected_charts": ["scatter", "size-by-value"],
+        "prompt": "Track whale behavior patterns using high-score users and large transaction volumes"
+      },
+      {
+        "id": 26,
+        "category": "DeFi Ecosystem Health",
+        "difficulty": "intermediate",
+        "expected_charts": ["bar", "ratio"],
+        "prompt": "Compare lending protocol health using deposit/withdrawal ratios and quality user engagement"
+      },
+      {
+        "id": 27,
+        "category": "DeFi Ecosystem Health",
+        "difficulty": "intermediate",
+        "expected_charts": ["stacked-bar", "comparison"],
+        "prompt": "Visualize DEX aggregator vs direct DEX usage patterns among quality users"
+      },
+      {
+        "id": 28,
+        "category": "DeFi Ecosystem Health",
+        "difficulty": "advanced",
+        "expected_charts": ["sankey", "migration"],
+        "prompt": "Show the evolution of yield farming strategies through user migration between protocols"
+      },
+      {
+        "id": 29,
+        "category": "DeFi Ecosystem Health",
+        "difficulty": "advanced",
+        "expected_charts": ["scatter", "retention"],
+        "prompt": "Track impermanent loss impact on LP provider retention across different AMMs"
+      },
+      {
+        "id": 30,
+        "category": "DeFi Ecosystem Health",
+        "difficulty": "advanced",
+        "expected_charts": ["line", "correlation"],
+        "prompt": "Analyze flash loan usage patterns and their correlation with protocol TVL changes"
+      },
+      {
+        "id": 31,
+        "category": "NFT Market Intelligence",
+        "difficulty": "intermediate",
+        "expected_charts": ["dashboard", "multi-metric"],
+        "prompt": "Create an NFT market health dashboard showing volume, unique traders, and quality user participation"
+      },
+      {
+        "id": 32,
+        "category": "NFT Market Intelligence",
+        "difficulty": "advanced",
+        "expected_charts": ["lifecycle", "funnel"],
+        "prompt": "Track NFT collection lifecycle from mint to secondary market using quality user metrics"
+      },
+      {
+        "id": 33,
+        "category": "NFT Market Intelligence",
+        "difficulty": "intermediate",
+        "expected_charts": ["dual-axis", "correlation"],
+        "prompt": "Visualize the correlation between NFT floor prices and quality collector activity"
+      },
+      {
+        "id": 34,
+        "category": "NFT Market Intelligence",
+        "difficulty": "advanced",
+        "expected_charts": ["line", "impact"],
+        "prompt": "Show cross-chain NFT bridge activity and its impact on collection values"
+      },
+      {
+        "id": 35,
+        "category": "NFT Market Intelligence",
+        "difficulty": "intermediate",
+        "expected_charts": ["comparison", "radar"],
+        "prompt": "Analyze gaming NFT protocols vs art NFT protocols using user engagement patterns"
+      },
+      {
+        "id": 36,
+        "category": "Governance & Staking Analysis",
+        "difficulty": "advanced",
+        "expected_charts": ["network", "distribution"],
+        "prompt": "Visualize validator delegation patterns and their correlation with network decentralization"
+      },
+      {
+        "id": 37,
+        "category": "Governance & Staking Analysis",
+        "difficulty": "intermediate",
+        "expected_charts": ["scatter", "success-rate"],
+        "prompt": "Track governance proposal success rates vs quality user participation across protocols"
+      },
+      {
+        "id": 38,
+        "category": "Governance & Staking Analysis",
+        "difficulty": "intermediate",
+        "expected_charts": ["stacked-bar", "comparison"],
+        "prompt": "Show liquid staking vs native staking adoption rates across different chains"
+      },
+      {
+        "id": 39,
+        "category": "Governance & Staking Analysis",
+        "difficulty": "intermediate",
+        "expected_charts": ["line", "impact"],
+        "prompt": "Analyze restaking protocol growth and its impact on overall network security"
+      },
+      {
+        "id": 40,
+        "category": "Governance & Staking Analysis",
+        "difficulty": "intermediate",
+        "expected_charts": ["bar", "concentration"],
+        "prompt": "Compare governance token distribution concentration across major DAOs"
+      },
+      {
+        "id": 41,
+        "category": "Advanced Multi-Metric Dashboards",
+        "difficulty": "advanced",
+        "expected_charts": ["dashboard", "risk-assessment"],
+        "prompt": "Create a protocol risk assessment dashboard using TVL volatility, user quality, and activity metrics"
+      },
+      {
+        "id": 42,
+        "category": "Advanced Multi-Metric Dashboards",
+        "difficulty": "advanced",
+        "expected_charts": ["index", "ranking"],
+        "prompt": "Build a chain competitiveness index using fees, speed, TVL, and quality user growth"
+      },
+      {
+        "id": 43,
+        "category": "Advanced Multi-Metric Dashboards",
+        "difficulty": "intermediate",
+        "expected_charts": ["ratio", "maturity"],
+        "prompt": "Visualize ecosystem maturity using the ratio of complex transactions to simple transfers"
+      },
+      {
+        "id": 44,
+        "category": "Advanced Multi-Metric Dashboards",
+        "difficulty": "advanced",
+        "expected_charts": ["sustainability", "multi-metric"],
+        "prompt": "Show protocol sustainability metrics combining user retention, fee generation, and quality engagement"
+      },
+      {
+        "id": 45,
+        "category": "Advanced Multi-Metric Dashboards",
+        "difficulty": "intermediate",
+        "expected_charts": ["before-after", "impact"],
+        "prompt": "Create an airdrop effectiveness tracker showing user score changes post-distribution"
+      },
+      {
+        "id": 46,
+        "category": "Arbitrage & MEV Analysis",
+        "difficulty": "advanced",
+        "expected_charts": ["opportunity", "spread"],
+        "prompt": "Track cross-chain arbitrage opportunities by analyzing price differentials and bridge volumes"
+      },
+      {
+        "id": 47,
+        "category": "Arbitrage & MEV Analysis",
+        "difficulty": "advanced",
+        "expected_charts": ["correlation", "extraction"],
+        "prompt": "Visualize MEV extraction patterns and their correlation with quality user trading behavior"
+      },
+      {
+        "id": 48,
+        "category": "Arbitrage & MEV Analysis",
+        "difficulty": "intermediate",
+        "expected_charts": ["frequency", "adoption"],
+        "prompt": "Show sandwich attack frequency vs protocol adoption rates"
+      },
+      {
+        "id": 49,
+        "category": "Arbitrage & MEV Analysis",
+        "difficulty": "advanced",
+        "expected_charts": ["timing", "pattern"],
+        "prompt": "Analyze front-running patterns in different DEX protocols using transaction timing data"
+      },
+      {
+        "id": 50,
+        "category": "Arbitrage & MEV Analysis",
+        "difficulty": "advanced",
+        "expected_charts": ["efficiency", "closure-rate"],
+        "prompt": "Create a market efficiency dashboard showing arbitrage closure rates across different chains"
+      }
+    ],
+    "metadata": {
+      "total_prompts": 50,
+      "categories": [
+        "Ecosystem Growth & User Quality Analysis",
+        "Protocol Performance Deep Dives", 
+        "Cross-Chain Comparative Analysis",
+        "User Behavior & Cohort Analysis",
+        "Market Dynamics & Trends",
+        "DeFi Ecosystem Health",
+        "NFT Market Intelligence",
+        "Governance & Staking Analysis", 
+        "Advanced Multi-Metric Dashboards",
+        "Arbitrage & MEV Analysis"
+      ],
+      "difficulty_levels": ["intermediate", "advanced"],
+      "chart_types": [
+        "line", "bar", "bubble", "distribution", "area", "heatmap", "scatter",
+        "dual-axis", "sankey", "flow", "stacked-bar", "dashboard", "multi-metric",
+        "funnel", "correlation", "cohort", "retention", "radar", "comparison",
+        "seasonal", "volatility", "event-overlay", "sentiment", "size-by-value",
+        "ratio", "migration", "lifecycle", "network", "success-rate", "impact",
+        "concentration", "risk-assessment", "index", "ranking", "maturity",
+        "sustainability", "before-after", "opportunity", "spread", "extraction",
+        "frequency", "adoption", "timing", "pattern", "efficiency", "closure-rate"
+      ]
+    }
+  }
