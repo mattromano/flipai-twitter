@@ -214,6 +214,73 @@ class TwitterPoster:
                 "error": str(e)
             }
     
+    def post_reply(self, original_tweet_id: str, reply_text: str) -> Dict[str, Any]:
+        """Post a reply to an existing tweet."""
+        try:
+            if not self.client:
+                return {
+                    "success": False,
+                    "error": "Twitter client not initialized",
+                    "tweet_id": None
+                }
+            
+            # Post the reply
+            response = self.client.create_tweet(
+                text=reply_text,
+                in_reply_to_tweet_id=original_tweet_id
+            )
+            
+            reply_id = response.data['id']
+            self.logger.log_success(f"✅ Reply posted: {reply_id}")
+            
+            return {
+                "success": True,
+                "tweet_id": reply_id,
+                "text": reply_text,
+                "in_reply_to_tweet_id": original_tweet_id
+            }
+            
+        except Exception as e:
+            self.logger.log_error(f"Reply posting failed: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "tweet_id": None
+            }
+    
+    def post_analysis_link_reply(self, original_tweet_id: str, analysis_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Post a reply with a link to the analysis."""
+        try:
+            chat_url = analysis_data.get("data", {}).get("chat_url", "")
+            analysis_prompt = analysis_data.get("prompt", "")
+            
+            if not chat_url:
+                return {
+                    "success": False,
+                    "error": "No analysis URL found",
+                    "tweet_id": None
+                }
+            
+            # Create reply text with the analysis link
+            reply_text = f"📊 Full analysis: {chat_url}"
+            
+            # Check character limit (280 - length of original tweet context)
+            if len(reply_text) > 280:
+                # Truncate the URL if needed, but keep it functional
+                max_text_length = 250  # Leave room for URL
+                truncated_prompt = analysis_prompt[:max_text_length - len("📊 Full analysis: ") - 20] + "..."
+                reply_text = f"📊 {truncated_prompt}: {chat_url}"
+            
+            return self.post_reply(original_tweet_id, reply_text)
+            
+        except Exception as e:
+            self.logger.log_error(f"Analysis link reply failed: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "tweet_id": None
+            }
+
     def _log_twitter_post(self, result: Dict[str, Any], analysis_data: Dict[str, Any]):
         """Log Twitter post to file."""
         try:

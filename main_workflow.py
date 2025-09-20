@@ -112,6 +112,17 @@ class MainWorkflow:
                     twitter_result = self.twitter_poster.post_from_analysis(analysis_result, test_mode=False)
                     if twitter_result.get("success", False):
                         self.logger.log_success(f"✅ Tweet posted successfully: {twitter_result['tweet_id']}")
+                        
+                        # Post follow-up reply with analysis link
+                        original_tweet_id = twitter_result.get('tweet_id')
+                        if original_tweet_id:
+                            self.logger.log_info("🔗 Posting follow-up reply with analysis link...")
+                            reply_result = self.twitter_poster.post_analysis_link_reply(original_tweet_id, analysis_result)
+                            if reply_result.get("success", False):
+                                self.logger.log_success(f"✅ Analysis link reply posted: {reply_result['tweet_id']}")
+                                twitter_result['reply_result'] = reply_result
+                            else:
+                                self.logger.log_warning(f"⚠️ Analysis link reply failed: {reply_result.get('error', 'Unknown error')}")
                     else:
                         self.logger.log_warning(f"⚠️ Twitter posting failed: {twitter_result.get('error', 'Unknown error')}")
             else:
