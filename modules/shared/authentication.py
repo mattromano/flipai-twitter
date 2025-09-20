@@ -40,11 +40,11 @@ class StealthAuthenticator:
             options.add_argument('--disable-features=VizDisplayCompositor')
             options.add_argument('--window-size=1920,1080')
             
-            # User agent
-            options.add_argument('--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+            # User agent - update to match current Chrome version
+            options.add_argument('--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36')
             
-            # Create undetected driver
-            self.driver = uc.Chrome(options=options, version_main=None)
+            # Create undetected driver - let it auto-detect the Chrome version
+            self.driver = uc.Chrome(options=options)
             
             # Execute stealth scripts
             self._apply_stealth_scripts()
