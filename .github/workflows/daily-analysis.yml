@@ -24,9 +24,11 @@ on:
       difficulty_filter:
         description: 'Filter prompts by difficulty (only used if prompt_type is random)'
         required: false
-        default: 'intermediate'
+        default: 'easy'
         type: choice
         options:
+          - easy
+          - mild_intermediate
           - intermediate
           - advanced
 
@@ -90,7 +92,7 @@ jobs:
         else
           # Use random prompt selection
           CATEGORY_FILTER="${{ github.event.inputs.category_filter }}"
-          DIFFICULTY_FILTER="${{ github.event.inputs.difficulty_filter || 'intermediate' }}"
+          DIFFICULTY_FILTER="${{ github.event.inputs.difficulty_filter || 'easy' }}"
           
           # Build command with filters
           CMD="python main_workflow.py --random-prompt"
@@ -151,7 +153,7 @@ jobs:
           echo "**Custom Prompt:** $CUSTOM_PROMPT" >> $GITHUB_STEP_SUMMARY
         else
           CATEGORY_FILTER="${{ github.event.inputs.category_filter }}"
-          DIFFICULTY_FILTER="${{ github.event.inputs.difficulty_filter || 'intermediate' }}"
+          DIFFICULTY_FILTER="${{ github.event.inputs.difficulty_filter || 'easy' }}"
           if [ -n "$CATEGORY_FILTER" ]; then
             echo "**Category Filter:** $CATEGORY_FILTER" >> $GITHUB_STEP_SUMMARY
           fi

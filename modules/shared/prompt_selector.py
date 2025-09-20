@@ -95,7 +95,7 @@ class PromptSelector:
         
         Args:
             category_filter: Filter by category name
-            difficulty_filter: Filter by difficulty level ('intermediate' or 'advanced')
+            difficulty_filter: Filter by difficulty level ('easy', 'mild_intermediate', 'intermediate', or 'advanced')
             
         Returns:
             Random prompt dict or None if no prompts available
@@ -249,7 +249,7 @@ def main():
     parser = argparse.ArgumentParser(description="Prompt Selection CLI")
     parser.add_argument("--select", action="store_true", help="Select and mark a random prompt")
     parser.add_argument("--category", type=str, help="Filter by category")
-    parser.add_argument("--difficulty", type=str, choices=["intermediate", "advanced"], 
+    parser.add_argument("--difficulty", type=str, choices=["easy", "mild_intermediate", "intermediate", "advanced"], 
                        help="Filter by difficulty")
     parser.add_argument("--stats", action="store_true", help="Show usage statistics")
     parser.add_argument("--reset", action="store_true", help="Reset usage tracking")

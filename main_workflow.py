@@ -281,7 +281,7 @@ Examples:
     
     parser.add_argument("--category", type=str,
                        help="Filter prompts by category (use with --random-prompt)")
-    parser.add_argument("--difficulty", type=str, choices=["intermediate", "advanced"],
+    parser.add_argument("--difficulty", type=str, choices=["easy", "mild_intermediate", "intermediate", "advanced"],
                        help="Filter prompts by difficulty (use with --random-prompt)")
     parser.add_argument("--analysis-only", action="store_true",
                        help="Run analysis only (no Twitter posting)")

@@ -1,0 +1,26 @@
+{
+  "used_prompts": [
+    54,
+    57
+  ],
+  "usage_history": [
+    {
+      "prompt_id": 54,
+      "used_at": "2025-09-19T17:53:15.467802",
+      "timestamp": "2025-09-19 17:53:15",
+      "category": "Basic Chain Metrics",
+      "difficulty": "easy",
+      "prompt_text": "Show the distribution of user quality scores on Base chain"
+    },
+    {
+      "prompt_id": 57,
+      "used_at": "2025-09-19T17:53:29.190647",
+      "timestamp": "2025-09-19 17:53:29",
+      "category": "Simple DeFi Analysis",
+      "difficulty": "easy",
+      "prompt_text": "What are the top 10 DeFi protocols by user count on Ethereum?"
+    }
+  ],
+  "last_reset": null,
+  "total_runs": 2
+}
