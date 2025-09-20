@@ -107,11 +107,12 @@ class TwitterPoster:
                 "tweet_id": None
             }
     
-    def post_from_analysis(self, analysis_data: Dict[str, Any]) -> Dict[str, Any]:
+    def post_from_analysis(self, analysis_data: Dict[str, Any], test_mode: bool = False) -> Dict[str, Any]:
         """Post a tweet from analysis data."""
         try:
             twitter_text = analysis_data.get("data", {}).get("twitter_text", "")
             chat_url = analysis_data.get("data", {}).get("chat_url", "")
+            artifacts = analysis_data.get("data", {}).get("artifacts", [])
             
             if not twitter_text:
                 return {
@@ -120,8 +121,8 @@ class TwitterPoster:
                     "tweet_id": None
                 }
             
-            # Create tweet content
-            tweet_content = f"🔍 Fresh crypto analysis from FlipsideAI:\n\n{twitter_text}"
+            # Use only the twitter_text without any prefix
+            tweet_content = twitter_text
             
             # Check character limit
             if len(tweet_content) > 280:
@@ -130,8 +131,27 @@ class TwitterPoster:
                 max_content_length = 280 - 50  # Leave room for truncation indicator
                 tweet_content = tweet_content[:max_content_length] + "..."
             
-            # Post the tweet
-            result = self.post_tweet(tweet_content)
+            # Find the artifact screenshot
+            image_path = None
+            if artifacts:
+                for artifact in artifacts:
+                    if artifact.get("type") == "analysis_artifact" and artifact.get("screenshot"):
+                        image_path = artifact["screenshot"]
+                        break
+            
+            # In test mode, just return the preview without posting
+            if test_mode:
+                return {
+                    "success": True,
+                    "test_mode": True,
+                    "tweet_content": tweet_content,
+                    "image_path": image_path,
+                    "chat_url": chat_url,
+                    "tweet_id": "TEST_MODE"
+                }
+            
+            # Post the tweet with image
+            result = self.post_tweet(tweet_content, image_path)
             
             # Log the post
             self._log_twitter_post(result, analysis_data)
@@ -144,6 +164,54 @@ class TwitterPoster:
                 "success": False,
                 "error": str(e),
                 "tweet_id": None
+            }
+    
+    def create_tweet_preview(self, analysis_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a preview of what the tweet will look like without posting."""
+        try:
+            twitter_text = analysis_data.get("data", {}).get("twitter_text", "")
+            chat_url = analysis_data.get("data", {}).get("chat_url", "")
+            artifacts = analysis_data.get("data", {}).get("artifacts", [])
+            
+            if not twitter_text:
+                return {
+                    "success": False,
+                    "error": "No Twitter text found in analysis data"
+                }
+            
+            # Use only the twitter_text without any prefix
+            tweet_content = twitter_text
+            
+            # Check character limit
+            if len(tweet_content) > 280:
+                self.logger.log_warning(f"⚠️ Tweet too long: {len(tweet_content)}/280 characters")
+                # Truncate if needed
+                max_content_length = 280 - 50  # Leave room for truncation indicator
+                tweet_content = tweet_content[:max_content_length] + "..."
+            
+            # Find the artifact screenshot
+            image_path = None
+            if artifacts:
+                for artifact in artifacts:
+                    if artifact.get("type") == "analysis_artifact" and artifact.get("screenshot"):
+                        image_path = artifact["screenshot"]
+                        break
+            
+            return {
+                "success": True,
+                "tweet_content": tweet_content,
+                "image_path": image_path,
+                "chat_url": chat_url,
+                "character_count": len(tweet_content),
+                "has_image": image_path is not None,
+                "image_exists": os.path.exists(image_path) if image_path else False
+            }
+            
+        except Exception as e:
+            self.logger.log_error(f"Tweet preview creation failed: {e}")
+            return {
+                "success": False,
+                "error": str(e)
             }
     
     def _log_twitter_post(self, result: Dict[str, Any], analysis_data: Dict[str, Any]):

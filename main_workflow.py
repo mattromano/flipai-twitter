@@ -65,7 +65,7 @@ class MainWorkflow:
             self.logger.log_error(f"Analysis workflow failed: {e}")
             return {"success": False, "error": str(e)}
     
-    def run_full_workflow(self, prompt: str, timeout: int = 600, post_to_twitter: bool = True) -> dict:
+    def run_full_workflow(self, prompt: str, timeout: int = 600, post_to_twitter: bool = True, test_mode: bool = False) -> dict:
         """Run complete workflow: analysis + Twitter posting."""
         try:
             self.logger.log_info("🚀 Starting Complete Flipside AI + Twitter Workflow")
@@ -90,16 +90,30 @@ class MainWorkflow:
             # Step 3: Post to Twitter (if enabled)
             twitter_result = None
             if post_to_twitter:
-                self.logger.log_info("🐦 Posting to Twitter...")
+                if test_mode:
+                    self.logger.log_info("🐦 Creating Twitter preview (test mode)...")
+                else:
+                    self.logger.log_info("🐦 Posting to Twitter...")
+                
                 # Initialize Twitter poster only when needed
                 if not self.twitter_poster:
                     self.twitter_poster = TwitterPoster()
-                twitter_result = self.twitter_poster.post_from_analysis(analysis_result)
                 
-                if twitter_result.get("success", False):
-                    self.logger.log_success(f"✅ Tweet posted successfully: {twitter_result['tweet_id']}")
+                if test_mode:
+                    # Create preview without posting
+                    twitter_result = self.twitter_poster.create_tweet_preview(analysis_result)
+                    if twitter_result.get("success", False):
+                        self.logger.log_success("✅ Tweet preview created successfully")
+                        self._print_tweet_preview(twitter_result)
+                    else:
+                        self.logger.log_warning(f"⚠️ Tweet preview failed: {twitter_result.get('error', 'Unknown error')}")
                 else:
-                    self.logger.log_warning(f"⚠️ Twitter posting failed: {twitter_result.get('error', 'Unknown error')}")
+                    # Actually post to Twitter
+                    twitter_result = self.twitter_poster.post_from_analysis(analysis_result, test_mode=False)
+                    if twitter_result.get("success", False):
+                        self.logger.log_success(f"✅ Tweet posted successfully: {twitter_result['tweet_id']}")
+                    else:
+                        self.logger.log_warning(f"⚠️ Twitter posting failed: {twitter_result.get('error', 'Unknown error')}")
             else:
                 self.logger.log_info("⏭️ Twitter posting skipped")
             
@@ -179,6 +193,36 @@ class MainWorkflow:
             
         except Exception as e:
             self.logger.log_error(f"Failed to print summary: {e}")
+    
+    def _print_tweet_preview(self, preview_data: dict):
+        """Print tweet preview information."""
+        try:
+            self.logger.log_info("\n🐦 Tweet Preview:")
+            self.logger.log_info("=" * 50)
+            
+            tweet_content = preview_data.get("tweet_content", "")
+            image_path = preview_data.get("image_path", "")
+            chat_url = preview_data.get("chat_url", "")
+            character_count = preview_data.get("character_count", 0)
+            has_image = preview_data.get("has_image", False)
+            image_exists = preview_data.get("image_exists", False)
+            
+            self.logger.log_info(f"📝 Tweet Content ({character_count}/280 characters):")
+            self.logger.log_info(f"  {tweet_content}")
+            
+            if has_image:
+                if image_exists:
+                    self.logger.log_info(f"📸 Image: {image_path} ✅")
+                else:
+                    self.logger.log_info(f"📸 Image: {image_path} ❌ (file not found)")
+            else:
+                self.logger.log_info("📸 Image: None")
+            
+            if chat_url:
+                self.logger.log_info(f"🔗 Chat URL: {chat_url}")
+            
+        except Exception as e:
+            self.logger.log_error(f"Failed to print tweet preview: {e}")
 
 
 def main():
@@ -209,6 +253,9 @@ Examples:
   # Run without Twitter posting
   python main_workflow.py --prompt "Analysis only" --no-twitter
 
+  # Test Twitter posting (preview only, no API call)
+  python main_workflow.py --prompt "Test tweet" --test-mode
+
   # Show prompt usage statistics
   python main_workflow.py --stats
         """
@@ -229,6 +276,8 @@ Examples:
                        help="Run analysis only (no Twitter posting)")
     parser.add_argument("--no-twitter", action="store_true",
                        help="Skip Twitter posting")
+    parser.add_argument("--test-mode", action="store_true",
+                       help="Test mode: create tweet preview without posting to Twitter API")
     parser.add_argument("--timeout", "-t", type=int, default=600,
                        help="Response timeout in seconds (default: 600)")
     parser.add_argument("--debug", action="store_true",
@@ -297,6 +346,8 @@ Examples:
         print("📊 Mode: Analysis only")
     elif args.no_twitter:
         print("🐦 Mode: Analysis + Preview (no Twitter posting)")
+    elif args.test_mode:
+        print("🐦 Mode: Analysis + Twitter Test (preview only)")
     else:
         print("🐦 Mode: Full workflow (Analysis + Twitter)")
     
@@ -310,7 +361,8 @@ Examples:
             result = workflow.run_full_workflow(
                 prompt_to_use, 
                 args.timeout, 
-                post_to_twitter=not args.no_twitter
+                post_to_twitter=not args.no_twitter,
+                test_mode=args.test_mode
             )
         
         # Log the selected prompt info if using random selection
