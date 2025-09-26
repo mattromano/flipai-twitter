@@ -2,8 +2,9 @@ name: Flipside AI + Twitter Automation
 
 on:
   schedule:
-    # Run daily at 9 AM UTC
+    # Run twice daily at 9 AM and 6 PM UTC
     - cron: '0 9 * * *'
+    - cron: '0 18 * * *'
   workflow_dispatch: # Allow manual trigger
     inputs:
       prompt_type:
