@@ -193,9 +193,15 @@ class MainWorkflow:
             if twitter_result:
                 self.logger.log_info(f"\n🐦 Twitter Results:")
                 if twitter_result.get("success", False):
-                    self.logger.log_info(f"  Status: ✅ Posted successfully")
-                    self.logger.log_info(f"  Tweet ID: {twitter_result['tweet_id']}")
-                    tweet_content = twitter_result.get("text", "")
+                    if twitter_result.get("test_mode", False):
+                        self.logger.log_info(f"  Status: ✅ Test mode (preview created)")
+                        self.logger.log_info(f"  Tweet ID: {twitter_result.get('tweet_id', 'TEST_MODE')}")
+                    else:
+                        self.logger.log_info(f"  Status: ✅ Posted successfully")
+                        self.logger.log_info(f"  Tweet ID: {twitter_result.get('tweet_id', 'N/A')}")
+                    
+                    # Get tweet content from either 'text' or 'tweet_content' field
+                    tweet_content = twitter_result.get("text", "") or twitter_result.get("tweet_content", "")
                     if tweet_content:
                         self.logger.log_info(f"  Content: {tweet_content[:100]}...")
                 else:

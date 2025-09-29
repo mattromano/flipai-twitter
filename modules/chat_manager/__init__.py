@@ -9,7 +9,5 @@ Handles all Flipside AI chat automation including:
 """
 
 from modules.chat_manager.flipside_automation import FlipsideChatManager
-from modules.chat_manager.data_extractor import DataExtractor
-from modules.chat_manager.artifact_capture import ArtifactCapture
 
-__all__ = ['FlipsideChatManager', 'DataExtractor', 'ArtifactCapture']
+__all__ = ['FlipsideChatManager']

@@ -124,12 +124,11 @@ class TwitterPoster:
             # Use only the twitter_text without any prefix
             tweet_content = twitter_text
             
-            # Check character limit
+            # Check character limit and handle bullet points
             if len(tweet_content) > 280:
                 self.logger.log_warning(f"⚠️ Tweet too long: {len(tweet_content)}/280 characters")
-                # Truncate if needed
-                max_content_length = 280 - 50  # Leave room for truncation indicator
-                tweet_content = tweet_content[:max_content_length] + "..."
+                # For bullet points, try to preserve as many complete bullets as possible
+                tweet_content = self._truncate_with_bullet_points(tweet_content)
             
             # Find the artifact screenshot
             image_path = None
@@ -182,12 +181,11 @@ class TwitterPoster:
             # Use only the twitter_text without any prefix
             tweet_content = twitter_text
             
-            # Check character limit
+            # Check character limit and handle bullet points
             if len(tweet_content) > 280:
                 self.logger.log_warning(f"⚠️ Tweet too long: {len(tweet_content)}/280 characters")
-                # Truncate if needed
-                max_content_length = 280 - 50  # Leave room for truncation indicator
-                tweet_content = tweet_content[:max_content_length] + "..."
+                # For bullet points, try to preserve as many complete bullets as possible
+                tweet_content = self._truncate_with_bullet_points(tweet_content)
             
             # Find the artifact screenshot
             image_path = None
@@ -304,3 +302,39 @@ class TwitterPoster:
             
         except Exception as e:
             self.logger.log_error(f"Failed to log Twitter post: {e}")
+    
+    def _truncate_with_bullet_points(self, text: str, max_length: int = 280) -> str:
+        """Truncate text while preserving complete bullet points."""
+        try:
+            if len(text) <= max_length:
+                return text
+            
+            lines = text.split('\n')
+            truncated_lines = []
+            current_length = 0
+            
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                
+                # Check if adding this line would exceed the limit
+                line_length = len(line) + (1 if truncated_lines else 0)  # +1 for newline
+                
+                if current_length + line_length > max_length - 3:  # -3 for "..."
+                    # If we have some content, add truncation indicator
+                    if truncated_lines:
+                        truncated_lines.append("...")
+                    break
+                
+                truncated_lines.append(line)
+                current_length += line_length
+            
+            result = '\n'.join(truncated_lines)
+            self.logger.log_info(f"📝 Truncated tweet to {len(result)} characters, preserving {len([l for l in truncated_lines if l.startswith('•')])} bullet points")
+            return result
+            
+        except Exception as e:
+            self.logger.log_error(f"Bullet point truncation failed: {e}")
+            # Fallback to simple truncation
+            return text[:max_length-3] + "..."

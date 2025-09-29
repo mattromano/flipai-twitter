@@ -211,14 +211,14 @@ class ChatDataExtractor:
                                             # Remove any remaining emoji/unicode characters
                                             twitter_part = re.sub(r'[\ud83c-\udbff\udc00-\udfff]', '', twitter_part).strip()
                                             if twitter_part:
-                                                twitter_content += twitter_part + " "
+                                                twitter_content += twitter_part + "\n"
                                         else:
                                             # Fallback to simple split if regex fails
                                             twitter_part = line.split("TWITTER_TEXT:")[1].strip()
                                             # Remove emoji and extra characters
                                             twitter_part = re.sub(r'[\ud83c-\udbff\udc00-\udfff]', '', twitter_part).strip()
                                             if twitter_part:
-                                                twitter_content += twitter_part + " "
+                                                twitter_content += twitter_part + "\n"
                                     elif twitter_content and line.strip():
                                         # Continue collecting until we hit a section break
                                         if (line.startswith("**THIS_CONCLUDES_THE_ANALYSIS**") or
@@ -228,9 +228,13 @@ class ChatDataExtractor:
                                             line.startswith("View Report") or
                                             line.startswith("Based on my comprehensive analysis")):
                                             break
-                                        # Skip empty lines and section headers
+                                        # Skip empty lines and section headers, but preserve bullet points
                                         if line.strip() and not line.startswith("**") and not line.startswith("##"):
-                                            twitter_content += line.strip() + " "
+                                            # Preserve bullet point formatting
+                                            if line.strip().startswith(("•", "-", "*", "◦", "▪", "▫")):
+                                                twitter_content += line.strip() + "\n"
+                                            else:
+                                                twitter_content += line.strip() + " "
                                 
                                 if twitter_content.strip():
                                     # Clean up the final result
@@ -238,9 +242,13 @@ class ChatDataExtractor:
                                     # Remove any remaining "TWITTER_TEXT:" prefix
                                     if clean_twitter_text.startswith("TWITTER_TEXT:"):
                                         clean_twitter_text = clean_twitter_text[12:].strip()
-                                    # Remove emoji and clean up
+                                    # Remove emoji and clean up, but preserve line breaks for bullet points
                                     clean_twitter_text = re.sub(r'[\ud83c-\udbff\udc00-\udfff]', '', clean_twitter_text).strip()
-                                    self.logger.log_success(f"✅ Extracted Twitter text: {len(clean_twitter_text)} characters")
+                                    # Normalize bullet points to use consistent formatting
+                                    clean_twitter_text = self._normalize_bullet_points(clean_twitter_text)
+                                    # Convert inline bullet points to separate lines
+                                    clean_twitter_text = self._convert_inline_bullets_to_lines(clean_twitter_text)
+                                    self.logger.log_success(f"✅ Extracted Twitter text with bullet points: {len(clean_twitter_text)} characters")
                                     return clean_twitter_text
                 except Exception as e:
                     self.logger.log_debug(f"Twitter selector {selector} failed: {e}")
@@ -310,6 +318,72 @@ class ChatDataExtractor:
         except Exception as e:
             self.logger.log_error(f"Twitter text extraction failed: {e}")
             return ""
+    
+    def _normalize_bullet_points(self, text: str) -> str:
+        """Normalize bullet points to use consistent formatting for Twitter."""
+        try:
+            lines = text.split('\n')
+            normalized_lines = []
+            
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                    
+                # Check if line starts with a bullet point
+                if line.startswith(("•", "-", "*", "◦", "▪", "▫")):
+                    # Normalize to use bullet point symbol with proper spacing
+                    if line.startswith(("-", "*")):
+                        line = "• " + line[1:].strip()
+                    elif line.startswith(("◦", "▪", "▫")):
+                        line = "• " + line[1:].strip()
+                    elif line.startswith("•") and not line.startswith("• "):
+                        line = "• " + line[1:].strip()
+                    normalized_lines.append(line)
+                else:
+                    normalized_lines.append(line)
+            
+            return '\n'.join(normalized_lines)
+            
+        except Exception as e:
+            self.logger.log_debug(f"Bullet point normalization failed: {e}")
+            return text
+    
+    def _convert_inline_bullets_to_lines(self, text: str) -> str:
+        """Convert inline bullet points to separate lines."""
+        try:
+            # Look for patterns like "• item1 • item2 • item3"
+            # Split on bullet points that are not at the start of a line
+            lines = text.split('\n')
+            converted_lines = []
+            
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                
+                # Check if line contains multiple bullet points (inline format)
+                if line.count('•') > 1 and not line.startswith('•'):
+                    # Split on bullet points and create separate lines
+                    parts = line.split('•')
+                    for i, part in enumerate(parts):
+                        part = part.strip()
+                        if part:
+                            if i == 0:
+                                # First part (before first bullet)
+                                converted_lines.append(part)
+                            else:
+                                # Parts after bullets
+                                converted_lines.append('• ' + part)
+                else:
+                    # Single line or already properly formatted
+                    converted_lines.append(line)
+            
+            return '\n'.join(converted_lines)
+            
+        except Exception as e:
+            self.logger.log_debug(f"Inline bullet conversion failed: {e}")
+            return text
     
     def _extract_response_text(self) -> str:
         """Extract the full response text from the chat."""

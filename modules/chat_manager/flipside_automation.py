@@ -21,8 +21,6 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 from modules.shared.authentication import StealthAuthenticator
 from modules.shared.logger import AutomationLogger
-from modules.chat_manager.data_extractor import DataExtractor
-from modules.chat_manager.artifact_capture import ArtifactCapture
 
 
 class FlipsideChatManager:
@@ -31,8 +29,6 @@ class FlipsideChatManager:
     def __init__(self, use_stealth_auth: bool = True):  # Default to True for automated login
         self.driver: Optional[webdriver.Chrome] = None
         self.authenticator: Optional[StealthAuthenticator] = None
-        self.data_extractor: DataExtractor = DataExtractor()
-        self.artifact_capture: ArtifactCapture = ArtifactCapture()
         self.logger: AutomationLogger = AutomationLogger()
         self.use_stealth_auth = use_stealth_auth
         
