@@ -53,6 +53,17 @@ Thumbs.db
 
 # Logs
 *.log
+logs/
+/tmp/
+
+# Screenshots
+screenshots/
+screenshots/**/*
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
 
 # Selenium
 chromedriver
