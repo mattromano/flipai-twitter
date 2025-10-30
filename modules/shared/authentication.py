@@ -1,5 +1,8 @@
 import os
+import sys
 import time
+import subprocess
+import re
 from typing import Optional
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -15,12 +18,100 @@ class StealthAuthenticator:
         self.driver = None
         self.logger = logger or AutomationLogger()
     
+    def _detect_chrome_version(self) -> Optional[int]:
+        """Detect the installed Chrome version."""
+        try:
+            version_output = None
+            
+            # Platform-specific Chrome paths
+            if os.name == 'nt':  # Windows
+                chrome_paths = [
+                    r'C:\Program Files\Google\Chrome\Application\chrome.exe',
+                    r'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe',
+                ]
+            elif sys.platform == 'darwin':  # macOS
+                chrome_paths = [
+                    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+                    '/Applications/Chromium.app/Contents/MacOS/Chromium',
+                ]
+            else:  # Linux
+                chrome_paths = [
+                    '/usr/bin/google-chrome',
+                    '/usr/bin/google-chrome-stable',
+                    '/usr/bin/chromium-browser',
+                    '/usr/bin/chromium',
+                    '/snap/bin/chromium',
+                ]
+            
+            # Try absolute paths first
+            for path in chrome_paths:
+                try:
+                    if os.path.exists(path):
+                        result = subprocess.run(
+                            [path, '--version'],
+                            capture_output=True,
+                            text=True,
+                            timeout=5
+                        )
+                        if result.returncode == 0:
+                            version_output = result.stdout.strip()
+                            self.logger.log_info(f"Found Chrome at: {path}")
+                            break
+                except (subprocess.TimeoutExpired, FileNotFoundError, PermissionError, OSError) as e:
+                    continue
+            
+            # If no absolute path worked, try common commands (works if in PATH)
+            if not version_output:
+                for cmd in ['google-chrome', 'google-chrome-stable', 'chromium-browser', 'chromium']:
+                    try:
+                        result = subprocess.run(
+                            [cmd, '--version'],
+                            capture_output=True,
+                            text=True,
+                            timeout=5
+                        )
+                        if result.returncode == 0:
+                            version_output = result.stdout.strip()
+                            self.logger.log_info(f"Found Chrome via command: {cmd}")
+                            break
+                    except (FileNotFoundError, PermissionError, OSError):
+                        continue
+            
+            # Extract version number from output
+            if version_output:
+                # Format examples:
+                # "Google Chrome 140.0.7339.207"
+                # "Chromium 140.0.7339.207"
+                # "Google Chrome 141.0.7390.123"
+                version_match = re.search(r'(\d+)\.\d+\.\d+\.\d+', version_output)
+                if version_match:
+                    major_version = int(version_match.group(1))
+                    self.logger.log_info(f"✅ Detected Chrome version: {major_version} (from: {version_output})")
+                    return major_version
+                
+                # Try alternative pattern (just major.minor)
+                version_match = re.search(r'(\d+)\.\d+', version_output)
+                if version_match:
+                    major_version = int(version_match.group(1))
+                    self.logger.log_info(f"✅ Detected Chrome version: {major_version} (from: {version_output})")
+                    return major_version
+            
+            self.logger.log_warning("⚠️ Could not detect Chrome version automatically")
+            return None
+            
+        except Exception as e:
+            self.logger.log_warning(f"Chrome version detection failed: {e}")
+            return None
+    
     def setup_driver(self):
         """Setup stealth Chrome driver with anti-detection capabilities."""
         try:
             self.logger.log_info("🤖 Setting up stealth Chrome driver")
             
             import undetected_chromedriver as uc
+            
+            # Detect Chrome version first
+            chrome_version = self._detect_chrome_version()
             
             # Configure Chrome options for stealth
             options = uc.ChromeOptions()
@@ -49,12 +140,32 @@ class StealthAuthenticator:
             window_size = os.getenv('CHROME_WINDOW_SIZE', '1920,1080')
             options.add_argument(f'--window-size={window_size}')
             
-            # User agent - update to match current Chrome version
-            options.add_argument('--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36')
+            # User agent - update to match detected Chrome version
+            if chrome_version:
+                user_agent = f'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{chrome_version}.0.0.0 Safari/537.36'
+            else:
+                user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36'
+            options.add_argument(f'--user-agent={user_agent}')
             
-            # Create undetected driver with auto version detection
+            # Clear cache before creating driver to avoid version mismatches
+            try:
+                import shutil
+                cache_dir = os.path.expanduser('~/.undetected_chromedriver')
+                if os.path.exists(cache_dir):
+                    self.logger.log_info("Clearing undetected-chromedriver cache to ensure correct version...")
+                    shutil.rmtree(cache_dir)
+                    self.logger.log_info("✅ Cache cleared")
+            except Exception as cache_error:
+                self.logger.log_warning(f"Could not clear cache (may not exist): {cache_error}")
+            
+            # Create undetected driver with explicit version if detected
             # This ensures ChromeDriver version matches the installed Chrome version
-            self.driver = uc.Chrome(options=options, version_main=None)
+            if chrome_version:
+                self.logger.log_info(f"Using Chrome version {chrome_version} for ChromeDriver")
+                self.driver = uc.Chrome(options=options, version_main=chrome_version)
+            else:
+                self.logger.log_info("Auto-detecting Chrome version for ChromeDriver")
+                self.driver = uc.Chrome(options=options, version_main=None)
             
             # Execute stealth scripts
             self._apply_stealth_scripts()
@@ -64,7 +175,22 @@ class StealthAuthenticator:
             
         except Exception as e:
             self.logger.log_error(f"Stealth driver setup failed: {e}")
-            return None
+            # Try fallback with no version specified
+            try:
+                self.logger.log_info("Attempting fallback with auto-detection...")
+                import undetected_chromedriver as uc
+                options = uc.ChromeOptions()
+                if os.getenv('CHROME_HEADLESS', 'false').lower() == 'true':
+                    options.add_argument('--headless=new')
+                options.add_argument('--no-sandbox')
+                options.add_argument('--disable-dev-shm-usage')
+                self.driver = uc.Chrome(options=options)
+                self._apply_stealth_scripts()
+                self.logger.log_success("✅ Fallback driver setup successful")
+                return self.driver
+            except Exception as fallback_error:
+                self.logger.log_error(f"Fallback driver setup also failed: {fallback_error}")
+                return None
     
     def _apply_stealth_scripts(self):
         """Apply JavaScript stealth scripts to avoid detection."""
