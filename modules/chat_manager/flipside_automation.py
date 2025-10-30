@@ -927,7 +927,6 @@ class FlipsideChatManager:
                 '--disable-extensions',
                 '--disable-plugins',
                 '--disable-images',
-                '--disable-javascript',
                 '--disable-web-security',
                 '--allow-running-insecure-content'
             ]

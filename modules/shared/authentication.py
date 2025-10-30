@@ -24,7 +24,14 @@ class StealthAuthenticator:
             
             # Configure Chrome options for stealth
             options = uc.ChromeOptions()
-            options.add_argument('--headless=new')
+            
+            # Check if running in headless mode from environment
+            headless_mode = os.getenv('CHROME_HEADLESS', 'false').lower() == 'true'
+            if headless_mode:
+                options.add_argument('--headless=new')
+                self.logger.log_info("Headless mode enabled")
+            else:
+                self.logger.log_info("Headless mode disabled (visible browser)")
             
             # Anti-detection arguments
             options.add_argument('--no-sandbox')
@@ -33,18 +40,21 @@ class StealthAuthenticator:
             options.add_argument('--disable-extensions')
             options.add_argument('--disable-plugins')
             options.add_argument('--disable-images')
-            options.add_argument('--disable-javascript')
             options.add_argument('--disable-gpu')
             options.add_argument('--disable-web-security')
             options.add_argument('--allow-running-insecure-content')
             options.add_argument('--disable-features=VizDisplayCompositor')
-            options.add_argument('--window-size=1920,1080')
+            
+            # Window size for consistent screenshots
+            window_size = os.getenv('CHROME_WINDOW_SIZE', '1920,1080')
+            options.add_argument(f'--window-size={window_size}')
             
             # User agent - update to match current Chrome version
             options.add_argument('--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36')
             
-            # Create undetected driver - let it auto-detect the Chrome version
-            self.driver = uc.Chrome(options=options)
+            # Create undetected driver with auto version detection
+            # This ensures ChromeDriver version matches the installed Chrome version
+            self.driver = uc.Chrome(options=options, version_main=None)
             
             # Execute stealth scripts
             self._apply_stealth_scripts()
