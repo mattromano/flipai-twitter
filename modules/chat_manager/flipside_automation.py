@@ -245,10 +245,10 @@ Format: "[Topic]:
 
 End with: **THIS_CONCLUDES_THE_ANALYSIS**
 
-
+This is the prompt I want you to do the analysis on:
 
 """
-            full_prompt = f"{prompt}{prompt_rules}"
+            full_prompt = f"{prompt_rules}{prompt}"
             
             # Log the full prompt length and verify rules are included
             self.logger.log_info(f"📝 Submitting prompt: {prompt[:50]}...")
@@ -841,10 +841,8 @@ End with: **THIS_CONCLUDES_THE_ANALYSIS**
         try:
             self.logger.log_info("📊 Extracting chat data")
             
-            # Extract shareable link first
-            shareable_url = self.extract_shareable_link()
-            
             # Use the chat data extractor for better extraction
+            # DO NOT call extract_shareable_link() - it clicks share buttons!
             from modules.chat_manager.chat_data_extractor import ChatDataExtractor
             extractor = ChatDataExtractor()
             
@@ -853,12 +851,13 @@ End with: **THIS_CONCLUDES_THE_ANALYSIS**
             extractor.authenticator = self.authenticator
             
             # Extract data using the specialized extractor (will use existing driver)
-            extraction_result = extractor.extract_from_chat_url(shareable_url if shareable_url else self.driver.current_url)
+            # Use current URL directly - extractor will handle artifact extraction
+            extraction_result = extractor.extract_from_chat_url(self.driver.current_url)
             
             if extraction_result["success"]:
                 results = {
                     "timestamp": datetime.now().isoformat(),
-                    "chat_url": shareable_url if shareable_url else self.driver.current_url,
+                    "chat_url": self.driver.current_url,
                     "response_text": extraction_result["response_text"],
                     "twitter_text": extraction_result["twitter_text"],
                     "artifacts": [],
@@ -886,7 +885,7 @@ End with: **THIS_CONCLUDES_THE_ANALYSIS**
             
             results = {
                 "timestamp": datetime.now().isoformat(),
-                "chat_url": shareable_url if shareable_url else self.driver.current_url,
+                "chat_url": self.driver.current_url,
                 "response_text": "",
                 "twitter_text": "",
                 "artifacts": [],

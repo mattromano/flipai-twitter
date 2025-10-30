@@ -476,24 +476,36 @@ class ChatDataExtractor:
             return ""
     
     def _capture_artifact_screenshot(self) -> str:
-        """Capture artifact screenshot by clicking publish, copying link from clipboard, and navigating to it."""
+        """Capture artifact screenshot by clicking publish button, copying link from clipboard, and navigating to it."""
         try:
             self.logger.log_info("📸 Capturing artifact screenshot")
             
-            # Step 1: Look for and click the Publish button
+            # Step 1: Look for and click the Publish button (this will copy link to clipboard automatically)
             publish_button = self._find_publish_button()
             if publish_button:
-                self.logger.log_info("📤 Clicking Publish button")
+                self.logger.log_info("📤 Clicking Publish button (will copy link to clipboard)")
                 self.driver.execute_script("arguments[0].click();", publish_button)
-                time.sleep(3)
+                time.sleep(2)  # Wait for publish to complete and button to transform
             else:
                 self.logger.log_info("ℹ️ Publish button not found, assuming already published")
             
-            # Step 2: Find and click the copy button to copy artifact link to clipboard
+            # Step 2: Read the artifact URL from clipboard
             artifact_url = self._extract_artifact_url_from_clipboard()
+            
+            # Step 3: If clipboard reading failed, try clicking the Copy link button (appears after publish)
             if not artifact_url:
-                # Fallback: Try extracting from View button
-                self.logger.log_info("🔄 Clipboard method failed, trying View button extraction...")
+                self.logger.log_info("🔄 Clipboard empty, looking for Copy link button...")
+                copy_link_button = self._find_copy_link_button()
+                if copy_link_button:
+                    self.logger.log_info("🔗 Clicking Copy link button (will copy link to clipboard)")
+                    self.driver.execute_script("arguments[0].click();", copy_link_button)
+                    time.sleep(2)  # Wait for clipboard copy to complete
+                    # Try reading from clipboard again
+                    artifact_url = self._extract_artifact_url_from_clipboard()
+            
+            # Step 4: Final fallback - Try extracting from View button
+            if not artifact_url:
+                self.logger.log_warning("⚠️ Could not read URL from clipboard, trying View button extraction...")
                 artifact_url = self._extract_artifact_url()
             
             if not artifact_url:
@@ -502,56 +514,74 @@ class ChatDataExtractor:
             
             self.logger.log_info(f"🔗 Extracted artifact URL: {artifact_url}")
             
-            # Step 3: Navigate directly to the artifact URL
+            # Step 5: Navigate directly to the artifact URL
             self.logger.log_info("🧭 Navigating to artifact URL")
             self.driver.get(artifact_url)
             time.sleep(5)
             
-            # Step 4: Optimize window size for artifact capture (1200x800px)
-            self.logger.log_info("🖥️ Setting window size to 1200x800px for optimal artifact capture")
-            self.driver.set_window_size(1200, 800)
+            # Wait for page to load
+            WebDriverWait(self.driver, 30).until(
+                EC.presence_of_element_located((By.TAG_NAME, "body"))
+            )
+            
+            # Wait for artifact title to appear (e.g., "Chain Health Radar")
+            self.logger.log_info("⏳ Waiting for artifact title to load...")
+            try:
+                WebDriverWait(self.driver, 15).until(
+                    lambda d: "Chain Health" in d.page_source or "Health Radar" in d.page_source or len(d.find_elements(By.TAG_NAME, "h1")) > 0
+                )
+                self.logger.log_info("✅ Artifact title detected")
+            except:
+                self.logger.log_warning("⚠️ Title not found, proceeding anyway")
+            
+            time.sleep(3)  # Additional wait for all content to render
+            
+            # Step 6: Scroll through entire page to ensure all content loads
+            self.logger.log_info("📜 Scrolling through page to load all content...")
+            last_height = self.driver.execute_script("return document.body.scrollHeight")
+            scroll_pause = 1
+            max_scrolls = 10
+            scroll_count = 0
+            
+            while scroll_count < max_scrolls:
+                self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                time.sleep(scroll_pause)
+                new_height = self.driver.execute_script("return document.body.scrollHeight")
+                if new_height == last_height:
+                    break
+                last_height = new_height
+                scroll_count += 1
+            
+            # Scroll back to top
+            self.driver.execute_script("window.scrollTo(0, 0);")
             time.sleep(2)
             
-            # Step 5: Wait for the artifact page to load completely
-            self.logger.log_info("⏳ Waiting for artifact page to load completely...")
-            time.sleep(5)
+            # Step 7: Get full page dimensions and set window size
+            total_width = self.driver.execute_script("return Math.max(document.body.scrollWidth, document.documentElement.scrollWidth);")
+            total_height = self.driver.execute_script("return Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);")
             
-            # Step 6: Scroll through entire page to ensure all content is loaded
-            self.logger.log_info("📜 Scrolling through entire page to load all content...")
-            self._scroll_through_page()
+            self.logger.log_info(f"📏 Full page dimensions: {total_width}x{total_height}")
             
-            # Step 7: Take full page screenshot of the artifact
+            # Set window to full page size with buffer
+            adjusted_height = total_height + 200  # Extra buffer for header/footer
+            self.driver.set_window_size(max(total_width, 1200), adjusted_height)
+            time.sleep(2)
+            
+            # Scroll to top one more time to ensure we start from beginning
+            self.driver.execute_script("window.scrollTo(0, 0);")
+            time.sleep(1)
+            
+            # Step 8: Take full page screenshot of the artifact
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             screenshot_path = f"screenshots/artifact_{timestamp}.png"
             
-            self.logger.log_info("📸 Taking full page screenshot of artifact...")
+            self.logger.log_info("📸 Taking full page screenshot...")
+            self.driver.save_screenshot(screenshot_path)
             
-            # Method 1: Try full page screenshot using JavaScript
-            try:
-                # Get the full page dimensions
-                total_width = self.driver.execute_script("return Math.max(document.body.scrollWidth, document.documentElement.scrollWidth);")
-                total_height = self.driver.execute_script("return Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);")
-                
-                # Add 100 pixels to height to prevent bottom cutoff
-                adjusted_height = total_height + 100
-                
-                self.logger.log_info(f"📏 Full page dimensions: {total_width}x{total_height} (adjusted height: {adjusted_height})")
-                
-                # Set viewport to full page size with extra height buffer
-                self.driver.set_window_size(total_width, adjusted_height)
-                time.sleep(2)
-                
-                # Take screenshot
-                self.driver.save_screenshot(screenshot_path)
-                
-                self.logger.log_success(f"✅ Full page screenshot captured: {total_width}x{adjusted_height} (original: {total_height})")
-                
-            except Exception as e:
-                self.logger.log_warning(f"⚠️ Full page screenshot failed, using standard method: {e}")
-                # Fallback to standard screenshot
-                self.driver.save_screenshot(screenshot_path)
+            self.logger.log_success(f"✅ Full page screenshot captured: {screenshot_path}")
+            self.logger.log_info(f"📐 Screenshot size: {total_width}x{adjusted_height}")
             
-            # Step 8: Get file details and return path
+            # Step 10: Get file details and return path
             if os.path.exists(screenshot_path):
                 file_size = os.path.getsize(screenshot_path)
                 self.logger.log_success(f"✅ Artifact screenshot saved: {screenshot_path}")
@@ -838,13 +868,17 @@ class ChatDataExtractor:
             return ""
     
     def _find_publish_button(self):
-        """Find the Publish button."""
+        """Find the Publish button - ONLY searches for buttons with 'Publish' text. NO share icons."""
         try:
+            self.logger.log_info("🔍 Looking for Publish button (Publish text only - NO share icons)")
+            
+            # ONLY search for buttons that contain "Publish" text - NEVER search for share icons
             publish_selectors = [
                 '//span[text()="Publish"]',
                 '//span[contains(text(), "Publish")]',
                 '//button[.//span[text()="Publish"]]',
                 '//button[contains(text(), "Publish")]',
+                '//button[normalize-space()="Publish"]',
             ]
             
             for selector in publish_selectors:
@@ -853,21 +887,155 @@ class ChatDataExtractor:
                     for element in elements:
                         if element.is_displayed():
                             text = element.text.strip()
-                            if "Publish" in text:
-                                location = element.location
-                                size = self.driver.get_window_size()
-                                if location['x'] > size['width'] * 0.5:  # Right half of screen
-                                    self.logger.log_info(f"✅ Found Publish button: '{text}' at x={location['x']}, y={location['y']}")
-                                    return element
+                            if "Publish" in text and "Share" not in text:
+                                self.logger.log_success(f"✅ Found Publish button by text: '{text}'")
+                                return element
                 except Exception as e:
                     self.logger.log_debug(f"Publish selector {selector} failed: {e}")
                     continue
             
+            # Fallback: Search all buttons and check their text content
+            self.logger.log_info("🔄 Searching all buttons for 'Publish' text")
+            all_buttons = self.driver.find_elements(By.TAG_NAME, 'button')
+            for i, button in enumerate(all_buttons):
+                if not button.is_displayed():
+                    continue
+                try:
+                    button_text = button.text.strip()
+                    # ONLY match if it says "Publish" and does NOT say "Share"
+                    if "Publish" in button_text and "Share" not in button_text:
+                        self.logger.log_success(f"✅ Found Publish button by text content: '{button_text}' - Element {i}")
+                        return button
+                except Exception as e:
+                    self.logger.log_debug(f"Error checking button {i}: {e}")
+                    continue
+            
+            self.logger.log_warning("⚠️ Publish button not found")
             return None
             
         except Exception as e:
             self.logger.log_error(f"Error finding Publish button: {e}")
             return None
+    
+    def _find_copy_link_button(self):
+        """Find the Copy link button that appears after publishing (has lucide-link SVG)."""
+        try:
+            self.logger.log_info("🔍 Looking for Copy link button (lucide-link icon)")
+            
+            # Method 1: Find any button with lucide-link SVG (broad search)
+            all_buttons = self.driver.find_elements(By.TAG_NAME, 'button')
+            self.logger.log_debug(f"Found {len(all_buttons)} total buttons on page")
+            
+            for i, button in enumerate(all_buttons):
+                if not button.is_displayed():
+                    continue
+                
+                try:
+                    # CRITICAL: Exclude any button with share2 SVG or "Share" text
+                    button_text = button.text.strip().lower()
+                    share2_svgs = button.find_elements(By.CSS_SELECTOR, 'svg.lucide-share2')
+                    if share2_svgs or 'share' in button_text:
+                        continue  # Skip share buttons
+                    
+                    # Check for lucide-link SVG
+                    svgs = button.find_elements(By.CSS_SELECTOR, 'svg.lucide-link')
+                    if svgs:
+                        self.logger.log_success(f"✅ Found Copy link button with lucide-link icon - Element {i}")
+                        return button
+                    
+                    # Fallback: Check for SVG with link structure (has path elements)
+                    all_svgs = button.find_elements(By.CSS_SELECTOR, 'svg')
+                    for svg in all_svgs:
+                        svg_html = svg.get_attribute('outerHTML') or ''
+                        # Skip if it has share2 icon
+                        if 'lucide-share2' in svg_html or (svg_html.count('<circle') >= 3 and svg_html.count('<line') >= 2):
+                            continue
+                        # Check for link icon characteristics (has path elements)
+                        if ('lucide-link' in svg_html or 
+                            (svg_html.count('<path') >= 2 and 'M10 13' in svg_html)):
+                            self.logger.log_success(f"✅ Found Copy link button via SVG structure - Element {i}")
+                            return button
+                            
+                except Exception as e:
+                    self.logger.log_debug(f"Error checking button {i}: {e}")
+                    continue
+            
+            # Method 2: Try specific selectors
+            specific_selectors = [
+                'button[data-slot="tooltip-trigger"]',
+                'button[data-state="closed"]',
+            ]
+            
+            for selector in specific_selectors:
+                try:
+                    buttons = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    for button in buttons:
+                        if not button.is_displayed():
+                            continue
+                        # CRITICAL: Exclude share buttons
+                        button_text = button.text.strip().lower()
+                        share2_svgs = button.find_elements(By.CSS_SELECTOR, 'svg.lucide-share2')
+                        if share2_svgs or 'share' in button_text:
+                            continue  # Skip share buttons
+                        # Check for link SVG
+                        svgs = button.find_elements(By.CSS_SELECTOR, 'svg.lucide-link')
+                        if svgs:
+                            self.logger.log_success(f"✅ Found Copy link button via selector: {selector}")
+                            return button
+                except Exception as e:
+                    self.logger.log_debug(f"Selector {selector} failed: {e}")
+                    continue
+            
+            self.logger.log_warning("⚠️ Copy link button not found")
+            return None
+            
+        except Exception as e:
+            self.logger.log_error(f"Error finding Copy link button: {e}")
+            return None
+    
+    def _extract_artifact_url_from_clipboard(self) -> str:
+        """Extract the artifact URL from the clipboard after clicking the publish button."""
+        try:
+            self.logger.log_info("📋 Reading artifact URL from clipboard")
+            
+            if not pyperclip:
+                self.logger.log_warning("⚠️ pyperclip not available, cannot read from clipboard")
+                return ""
+            
+            # Read from clipboard
+            clipboard_content = pyperclip.paste()
+            
+            if not clipboard_content:
+                self.logger.log_warning("⚠️ Clipboard is empty")
+                return ""
+            
+            # Check if clipboard contains a URL
+            if 'flipsidecrypto.xyz' in clipboard_content or 'http' in clipboard_content:
+                # Extract URL if it's part of a larger string
+                url_pattern = r'https?://[^\s]+flipsidecrypto\.xyz[^\s]*'
+                url_matches = re.findall(url_pattern, clipboard_content)
+                
+                if url_matches:
+                    artifact_url = url_matches[0]
+                    # Clean up the URL (remove trailing characters if needed)
+                    artifact_url = artifact_url.rstrip('.,;:!?')
+                    self.logger.log_success(f"✅ Found artifact URL in clipboard: {artifact_url}")
+                    return artifact_url
+                elif 'flipsidecrypto.xyz' in clipboard_content:
+                    # Try to extract just the URL part
+                    self.logger.log_info(f"📋 Clipboard content: {clipboard_content[:100]}...")
+                    # Use the entire clipboard content if it looks like a URL
+                    if clipboard_content.strip().startswith('http'):
+                        self.logger.log_success(f"✅ Using clipboard content as URL: {clipboard_content.strip()}")
+                        return clipboard_content.strip()
+            else:
+                self.logger.log_warning(f"⚠️ Clipboard does not contain a URL: {clipboard_content[:50]}...")
+            
+            return ""
+            
+        except Exception as e:
+            self.logger.log_error(f"Error reading from clipboard: {e}")
+            return ""
     
     def _find_view_button(self):
         """Find the View button."""
