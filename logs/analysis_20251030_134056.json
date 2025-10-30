@@ -1,0 +1,16 @@
+{
+  "timestamp": "2025-10-30T13:40:56.707829",
+  "prompt": "Show total CEX deposit volume to Ethereum from all exchanges yesterday",
+  "data": {
+    "timestamp": "2025-10-30T13:40:56.295279",
+    "chat_url": "https://flipsidecrypto.xyz/chat/d3d3eeb9-f142-4a20-999f-2d93f07bfd46",
+    "response_text": "",
+    "twitter_text": "Concise bullet format with bullet symbol, each line under 50 chars, total under 260]Format: \"[Topic]: - [Metric]: - [Metric]: - [Metric]: \"End with:",
+    "artifacts": [],
+    "screenshots": [
+      "screenshots/final_extraction_20251030_134055.png",
+      "screenshots/final_state_20251030_134056.png"
+    ],
+    "response_metadata": {}
+  }
+}

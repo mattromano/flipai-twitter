@@ -1,7 +1,33 @@
 {
   "used_prompts": [
     54,
-    57
+    57,
+    99,
+    90,
+    82,
+    77,
+    97,
+    52,
+    65,
+    79,
+    92,
+    56,
+    58,
+    85,
+    55,
+    67,
+    61,
+    51,
+    71,
+    94,
+    75,
+    72,
+    62,
+    53,
+    81,
+    66,
+    86,
+    88
   ],
   "usage_history": [
     {
@@ -19,8 +45,216 @@
       "category": "Simple DeFi Analysis",
       "difficulty": "easy",
       "prompt_text": "What are the top 10 DeFi protocols by user count on Ethereum?"
+    },
+    {
+      "prompt_id": 99,
+      "used_at": "2025-10-30T11:22:12.835419",
+      "timestamp": "2025-10-30 11:22:12",
+      "category": "Simple Cross-Chain",
+      "difficulty": "easy",
+      "prompt_text": "Track daily active users across Ethereum, Arbitrum, and Polygon"
+    },
+    {
+      "prompt_id": 90,
+      "used_at": "2025-10-30T11:29:29.236676",
+      "timestamp": "2025-10-30 11:29:29",
+      "category": "Simple Trending Analysis",
+      "difficulty": "easy",
+      "prompt_text": "Track the daily growth in quality users across all major chains"
+    },
+    {
+      "prompt_id": 82,
+      "used_at": "2025-10-30T12:00:50.055945",
+      "timestamp": "2025-10-30 12:00:50",
+      "category": "Exchange Activity",
+      "difficulty": "easy",
+      "prompt_text": "Track CEX withdrawals from Ethereum over the past 2 weeks"
+    },
+    {
+      "prompt_id": 77,
+      "used_at": "2025-10-30T12:03:15.769380",
+      "timestamp": "2025-10-30 12:03:15",
+      "category": "NFT Market Basics",
+      "difficulty": "easy",
+      "prompt_text": "What are the top 10 NFT collections by trading volume this week?"
+    },
+    {
+      "prompt_id": 97,
+      "used_at": "2025-10-30T12:05:14.185500",
+      "timestamp": "2025-10-30 12:05:14",
+      "category": "Simple Cross-Chain",
+      "difficulty": "easy",
+      "prompt_text": "Show total DeFi TVL breakdown by chain for the past month"
+    },
+    {
+      "prompt_id": 52,
+      "used_at": "2025-10-30T12:06:21.834653",
+      "timestamp": "2025-10-30 12:06:21",
+      "category": "Basic Chain Metrics",
+      "difficulty": "easy",
+      "prompt_text": "Compare total transaction volume between Ethereum and Arbitrum this week"
+    },
+    {
+      "prompt_id": 65,
+      "used_at": "2025-10-30T12:08:24.729423",
+      "timestamp": "2025-10-30 12:08:24",
+      "category": "User Behavior Basics",
+      "difficulty": "easy",
+      "prompt_text": "Compare weekend vs weekday user activity on Polygon"
+    },
+    {
+      "prompt_id": 79,
+      "used_at": "2025-10-30T12:09:16.048046",
+      "timestamp": "2025-10-30 12:09:16",
+      "category": "NFT Market Basics",
+      "difficulty": "easy",
+      "prompt_text": "Show the trend of unique NFT buyers on Polygon this month"
+    },
+    {
+      "prompt_id": 92,
+      "used_at": "2025-10-30T12:25:42.176517",
+      "timestamp": "2025-10-30 12:25:42",
+      "category": "Basic Governance",
+      "difficulty": "easy",
+      "prompt_text": "Show the distribution of governance participation by user quality scores"
+    },
+    {
+      "prompt_id": 56,
+      "used_at": "2025-10-30T12:34:34.608784",
+      "timestamp": "2025-10-30 12:34:34",
+      "category": "Simple DeFi Analysis",
+      "difficulty": "easy",
+      "prompt_text": "Show Uniswap daily trading volume for the past month"
+    },
+    {
+      "prompt_id": 58,
+      "used_at": "2025-10-30T12:50:30.680498",
+      "timestamp": "2025-10-30 12:50:30",
+      "category": "Simple DeFi Analysis",
+      "difficulty": "easy",
+      "prompt_text": "Track total DEX swap volume across all chains over the last 7 days"
+    },
+    {
+      "prompt_id": 85,
+      "used_at": "2025-10-30T13:02:41.908351",
+      "timestamp": "2025-10-30 13:02:41",
+      "category": "Exchange Activity",
+      "difficulty": "easy",
+      "prompt_text": "Plot CEX activity volume vs number of active traders on Base"
+    },
+    {
+      "prompt_id": 55,
+      "used_at": "2025-10-30T13:08:08.799514",
+      "timestamp": "2025-10-30 13:08:08",
+      "category": "Basic Chain Metrics",
+      "difficulty": "easy",
+      "prompt_text": "Which day of the week sees the highest transaction count on Polygon?"
+    },
+    {
+      "prompt_id": 67,
+      "used_at": "2025-10-30T13:18:53.180283",
+      "timestamp": "2025-10-30 13:18:53",
+      "category": "Token Analysis",
+      "difficulty": "easy",
+      "prompt_text": "Which are the top 5 most transferred tokens on Arbitrum today?"
+    },
+    {
+      "prompt_id": 61,
+      "used_at": "2025-10-30T13:19:45.128059",
+      "timestamp": "2025-10-30 13:19:45",
+      "category": "User Behavior Basics",
+      "difficulty": "easy",
+      "prompt_text": "How many new wallets were created on Solana last week?"
+    },
+    {
+      "prompt_id": 51,
+      "used_at": "2025-10-30T13:20:37.521945",
+      "timestamp": "2025-10-30 13:20:37",
+      "category": "Basic Chain Metrics",
+      "difficulty": "easy",
+      "prompt_text": "Show me daily active users on Ethereum for the past 30 days"
+    },
+    {
+      "prompt_id": 71,
+      "used_at": "2025-10-30T13:21:27.468367",
+      "timestamp": "2025-10-30 13:21:27",
+      "category": "Bridge Activity",
+      "difficulty": "easy",
+      "prompt_text": "How much value was bridged to Arbitrum from Ethereum last week?"
+    },
+    {
+      "prompt_id": 94,
+      "used_at": "2025-10-30T13:22:25.023544",
+      "timestamp": "2025-10-30 13:22:25",
+      "category": "Basic Governance",
+      "difficulty": "easy",
+      "prompt_text": "Which protocols have the most active governance participation?"
+    },
+    {
+      "prompt_id": 75,
+      "used_at": "2025-10-30T13:24:29.523675",
+      "timestamp": "2025-10-30 13:24:29",
+      "category": "Bridge Activity",
+      "difficulty": "easy",
+      "prompt_text": "Show bridge volume vs number of unique bridgers on Polygon"
+    },
+    {
+      "prompt_id": 72,
+      "used_at": "2025-10-30T13:28:55.241582",
+      "timestamp": "2025-10-30 13:28:55",
+      "category": "Bridge Activity",
+      "difficulty": "easy",
+      "prompt_text": "Track daily bridge transactions to Optimism over the past month"
+    },
+    {
+      "prompt_id": 62,
+      "used_at": "2025-10-30T13:30:48.961351",
+      "timestamp": "2025-10-30 13:30:48",
+      "category": "User Behavior Basics",
+      "difficulty": "easy",
+      "prompt_text": "Track the number of quality users (score 4+) on Arbitrum over the past month"
+    },
+    {
+      "prompt_id": 53,
+      "used_at": "2025-10-30T13:34:43.992974",
+      "timestamp": "2025-10-30 13:34:43",
+      "category": "Basic Chain Metrics",
+      "difficulty": "easy",
+      "prompt_text": "Track gas fees on Ethereum over the last 14 days"
+    },
+    {
+      "prompt_id": 81,
+      "used_at": "2025-10-30T13:39:28.365638",
+      "timestamp": "2025-10-30 13:39:28",
+      "category": "Exchange Activity",
+      "difficulty": "easy",
+      "prompt_text": "Show total CEX deposit volume to Ethereum from all exchanges yesterday"
+    },
+    {
+      "prompt_id": 66,
+      "used_at": "2025-10-30T13:41:53.692910",
+      "timestamp": "2025-10-30 13:41:53",
+      "category": "Token Analysis",
+      "difficulty": "easy",
+      "prompt_text": "Show daily USDC transfer volume on Ethereum for the past 2 weeks"
+    },
+    {
+      "prompt_id": 86,
+      "used_at": "2025-10-30T13:43:25.981466",
+      "timestamp": "2025-10-30 13:43:25",
+      "category": "Simple Trending Analysis",
+      "difficulty": "easy",
+      "prompt_text": "What protocols are trending up in user count this week on Ethereum?"
+    },
+    {
+      "prompt_id": 88,
+      "used_at": "2025-10-30T13:44:59.319594",
+      "timestamp": "2025-10-30 13:44:59",
+      "category": "Simple Trending Analysis",
+      "difficulty": "easy",
+      "prompt_text": "Which tokens had the highest transfer volume growth yesterday?"
     }
   ],
   "last_reset": null,
-  "total_runs": 2
+  "total_runs": 28
 }

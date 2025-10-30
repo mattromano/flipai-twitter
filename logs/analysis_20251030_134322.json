@@ -1,0 +1,16 @@
+{
+  "timestamp": "2025-10-30T13:43:22.210242",
+  "prompt": "Show daily USDC transfer volume on Ethereum for the past 2 weeks",
+  "data": {
+    "timestamp": "2025-10-30T13:43:21.807521",
+    "chat_url": "https://flipsidecrypto.xyz/chat/8b98438f-6a90-4303-9e7f-c4af52fcf155",
+    "response_text": "",
+    "twitter_text": "Concise bullet format with bullet symbol, each line under 50 chars, total under 260]Format: \"[Topic]: - [Metric]: - [Metric]: - [Metric]: \"End with:",
+    "artifacts": [],
+    "screenshots": [
+      "screenshots/final_extraction_20251030_134321.png",
+      "screenshots/final_state_20251030_134321.png"
+    ],
+    "response_metadata": {}
+  }
+}

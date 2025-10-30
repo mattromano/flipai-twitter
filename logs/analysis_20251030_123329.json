@@ -1,0 +1,21 @@
+{
+  "timestamp": "2025-10-30T12:33:29.457057",
+  "prompt": "Show the distribution of governance participation by user quality scores",
+  "data": {
+    "timestamp": "2025-10-30T12:33:29.179629",
+    "chat_url": null,
+    "response_text": "",
+    "twitter_text": "",
+    "artifacts": [],
+    "screenshots": [],
+    "response_metadata": {
+      "word_count": 0,
+      "has_charts": false,
+      "has_tables": false,
+      "has_code": false,
+      "analysis_type": "market_analysis",
+      "conclusion_marker_found": false,
+      "twitter_text_format": "old"
+    }
+  }
+}

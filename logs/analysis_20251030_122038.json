@@ -1,0 +1,23 @@
+{
+  "timestamp": "2025-10-30T12:20:38.221788",
+  "prompt": "Show the trend of unique NFT buyers on Polygon this month",
+  "data": {
+    "timestamp": "2025-10-30T12:20:34.360856",
+    "chat_url": "https://flipsidecrypto.xyz/chat/40fb3e1d-9b59-44ac-a41e-4e8404a36b17",
+    "response_text": "SELECT \n  token_address,\n  symbol,\n  name,\n  decimals,\n  asset_id\nFROM solana.price.ez_asset_metadata\nWHERE LOWER(symbol) = 'wif'\n  AND blockchain = 'solana'\n  AND is_deprecated = FALSE\nLIMIT 10",
+    "twitter_text": "",
+    "artifacts": [],
+    "screenshots": [
+      "screenshots/final_state_20251030_122037.png"
+    ],
+    "response_metadata": {
+      "word_count": 22,
+      "has_charts": false,
+      "has_tables": false,
+      "has_code": false,
+      "analysis_type": "market_analysis",
+      "conclusion_marker_found": false,
+      "twitter_text_format": "old"
+    }
+  }
+}

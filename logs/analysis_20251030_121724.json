@@ -1,0 +1,23 @@
+{
+  "timestamp": "2025-10-30T12:17:24.783021",
+  "prompt": "Compare total transaction volume between Ethereum and Arbitrum this week",
+  "data": {
+    "timestamp": "2025-10-30T12:17:23.571701",
+    "chat_url": "https://flipsidecrypto.xyz/chat/",
+    "response_text": "flipsideAI\nBETA\nToggle Sidebar\nStart a chat\nArtifacts\nRules\nRecent Chats\nPolygon NFT Buyer Trend\nPolymarket Top Questions Volume\nProtocol Transaction Count\nCohort Analysis: Retention Rates\nAave Wallet Tx Frequency\nEthereum to Arbitrum Bridge Analysis\nNew Chat\nDAO Governance Vote Count\nGenerate FlipEvals Test Prompts\nCEX Ethereum Deposit Volume\nEthereum Daily Active Users\nArbitrum Quality Users\nEthereum Gas Fees Tracker\nEthereum Gas Fees Tracking\nSolana Protocol Volume\nEthereum Protocols Volume\nBase Protocol Volume\nETH Price & Layer 2 Usage\nBase Chain Bridge Protocols\nBest Stablecoin Yield\nLargest Transactions/Trades\nPolymarket Top Volume Questions\nTop Meme Coins on Base\nEVM Space Bridges by Volume\nTop Perp Protocols 2025\nUniswap Twitter Account\nWETH Usage Trends\nArbitrum Bridged Value\nTrack Arbitrum Quality Users\nWETH Usage Trends\nCreate a support ticket\nJoin our telegram\nFlipside data on\nUse Flipside AI with\nflipsidematt\nPersonal",
+    "twitter_text": "",
+    "artifacts": [],
+    "screenshots": [
+      "screenshots/final_state_20251030_121724.png"
+    ],
+    "response_metadata": {
+      "word_count": 138,
+      "has_charts": false,
+      "has_tables": false,
+      "has_code": false,
+      "analysis_type": "market_analysis",
+      "conclusion_marker_found": false,
+      "twitter_text_format": "old"
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "timestamp": "2025-10-30T13:46:00.153524",
+  "prompt": "Which tokens had the highest transfer volume growth yesterday?",
+  "data": {
+    "timestamp": "2025-10-30T13:45:59.175010",
+    "chat_url": "https://flipsidecrypto.xyz/chat/3f028e9c-d5a5-4ff9-b1ca-59d7d901474c",
+    "response_text": "flipsideAI\nBETA\nToggle Sidebar\nStart a chat\nArtifacts\nRules\nRecent Chats\nHighest Token Transfer Volume\nEthereum Protocols User Trends\nUSDC Transfer Volume Ethereum\nEthereum CEX Deposit Volume\nArbitrum quality user tracking\nPolygon Bridge Volume & Users\nActive Governance Protocols\nNew Chat\nNew Chat\nNew Chat\nPolygon daily transaction counts\nBase CEX Volume & Traders\nLargest Liquidations on Aave\nTrack DEX Swap Volume\nLargest market on Polymarket\nF1 Polymarket Questions 2025 Analysis\nUniswap Daily Trading Volume\nGovernance Participation Distribution\nDogwifhat WIF Whale Wallets\nPolygon NFT Buyer Trend\nPolymarket Top Questions Volume\nProtocol Transaction Count\nCohort Analysis: Retention Rates\nAave Wallet Tx Frequency\nEthereum to Arbitrum Bridge Analysis\nNew Chat\nDAO Governance Vote Count\nGenerate FlipEvals Test Prompts\nCEX Ethereum Deposit Volume\nEthereum Daily Active Users\nCreate a support ticket\nJoin our telegram\nFlipside data on\nUse Flipside AI with\nflipsidematt\nPersonal",
+    "twitter_text": "",
+    "artifacts": [],
+    "screenshots": [
+      "screenshots/final_state_20251030_134559.png"
+    ],
+    "response_metadata": {
+      "word_count": 140,
+      "has_charts": false,
+      "has_tables": false,
+      "has_code": false,
+      "analysis_type": "market_analysis",
+      "conclusion_marker_found": true,
+      "twitter_text_format": "old"
+    }
+  }
+}

@@ -16,6 +16,11 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
+try:
+    import pyperclip
+except ImportError:
+    pyperclip = None
+
 from modules.shared.authentication import StealthAuthenticator
 from modules.shared.logger import AutomationLogger
 
@@ -427,7 +432,7 @@ class ChatDataExtractor:
             return ""
     
     def _capture_artifact_screenshot(self) -> str:
-        """Capture artifact screenshot by extracting the artifact link and navigating to it."""
+        """Capture artifact screenshot by clicking publish, copying link from clipboard, and navigating to it."""
         try:
             self.logger.log_info("📸 Capturing artifact screenshot")
             
@@ -440,8 +445,13 @@ class ChatDataExtractor:
             else:
                 self.logger.log_info("ℹ️ Publish button not found, assuming already published")
             
-            # Step 2: Extract the artifact link from the View button
-            artifact_url = self._extract_artifact_url()
+            # Step 2: Find and click the copy button to copy artifact link to clipboard
+            artifact_url = self._extract_artifact_url_from_clipboard()
+            if not artifact_url:
+                # Fallback: Try extracting from View button
+                self.logger.log_info("🔄 Clipboard method failed, trying View button extraction...")
+                artifact_url = self._extract_artifact_url()
+            
             if not artifact_url:
                 self.logger.log_error("❌ Could not extract artifact URL")
                 return ""

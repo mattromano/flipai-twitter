@@ -1,0 +1,23 @@
+{
+  "timestamp": "2025-10-30T13:44:30.136079",
+  "prompt": "What protocols are trending up in user count this week on Ethereum?",
+  "data": {
+    "timestamp": "2025-10-30T13:44:29.118578",
+    "chat_url": "https://flipsidecrypto.xyz/chat/342d8f5e-ea95-4c1c-b676-daa9759be6de",
+    "response_text": "flipsideAI\nBETA\nToggle Sidebar\nStart a chat\nArtifacts\nRules\nRecent Chats\nEthereum Protocols User Trends\nUSDC Transfer Volume Ethereum\nEthereum CEX Deposit Volume\nArbitrum quality user tracking\nPolygon Bridge Volume & Users\nActive Governance Protocols\nNew Chat\nNew Chat\nNew Chat\nPolygon daily transaction counts\nBase CEX Volume & Traders\nLargest Liquidations on Aave\nTrack DEX Swap Volume\nLargest market on Polymarket\nF1 Polymarket Questions 2025 Analysis\nUniswap Daily Trading Volume\nGovernance Participation Distribution\nDogwifhat WIF Whale Wallets\nPolygon NFT Buyer Trend\nPolymarket Top Questions Volume\nProtocol Transaction Count\nCohort Analysis: Retention Rates\nAave Wallet Tx Frequency\nEthereum to Arbitrum Bridge Analysis\nNew Chat\nDAO Governance Vote Count\nGenerate FlipEvals Test Prompts\nCEX Ethereum Deposit Volume\nEthereum Daily Active Users\nArbitrum Quality Users\nCreate a support ticket\nJoin our telegram\nFlipside data on\nUse Flipside AI with\nflipsidematt\nPersonal",
+    "twitter_text": "",
+    "artifacts": [],
+    "screenshots": [
+      "screenshots/final_state_20251030_134429.png"
+    ],
+    "response_metadata": {
+      "word_count": 139,
+      "has_charts": false,
+      "has_tables": false,
+      "has_code": false,
+      "analysis_type": "market_analysis",
+      "conclusion_marker_found": true,
+      "twitter_text_format": "old"
+    }
+  }
+}
