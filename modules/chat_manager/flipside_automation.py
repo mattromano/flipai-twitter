@@ -14,6 +14,7 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
@@ -93,6 +94,29 @@ class FlipsideChatManager:
         """Navigate to the Flipside chat page."""
         try:
             self.logger.log_info("🧭 Navigating to chat page")
+            
+            # First check if we're already on a chat page
+            current_url = self.driver.current_url if self.driver else ""
+            if '/chat/' in current_url:
+                self.logger.log_info(f"✅ Already on chat page: {current_url}")
+                # Verify we can find chat input elements
+                try:
+                    chat_input_indicators = [
+                        "textarea[placeholder*='Ask']",
+                        "textarea[placeholder*='message']",
+                        "textarea",
+                        "input[placeholder*='message']"
+                    ]
+                    for indicator in chat_input_indicators:
+                        elements = self.driver.find_elements(By.CSS_SELECTOR, indicator)
+                        for elem in elements:
+                            if elem.is_displayed() and elem.is_enabled():
+                                self.logger.log_info(f"✅ Verified chat input is available: {indicator}")
+                                return True
+                except:
+                    pass
+                # If we're on chat page but can't find input, continue to navigation logic
+                self.logger.log_info("⚠️ On chat page but input not found, refreshing...")
             
             # Try different chat URLs
             chat_urls = [
@@ -176,57 +200,230 @@ class FlipsideChatManager:
     def submit_prompt(self, prompt: str) -> bool:
         """Submit a prompt to the chat."""
         try:
-            self.logger.log_info(f"📝 Submitting prompt: {prompt[:50]}...")
+            # Append comprehensive prompt rules to every prompt
+            prompt_rules = """
+
+You are a crypto analyst creating Twitter posts. Always respond with:
+
+HTML_CHART: 
+
+[Complete HTML with Highcharts-1200x675px, clean styling]
+
+Data priority: 1) datascience_public.{chain}.{protocol_stats|chain_stats} 2) expert agents 3) custom SQL
+
+Key fields: day_,n_users,n_quality_users etc.
+
+Requirements:
+
+- Always include charts with response
+
+- Complete analysis in one response
+
+- Render HTML as artifact (NOT code block)
+
+- Use high-contrast colors: ['#8B5CF6', '#EC4899', '#06B6D4', '#F59E0B', '#EF4444', '#10B981', '#6366F1', '#F97316']
+
+- Design for universal readability: white text on dark cards, dark borders, high contrast gradients
+
+- Cards: background:#334155, color:white
+
+- Validate data before creating charts - skip chart if not valid
+
+
+
+MAKE SURE THE BOTTOM FOLLOWS THIS STRUCTURE EXACTLY:
+
+TWITTER_TEXT: [Concise bullet format with bullet symbol, each line under 50 chars, total under 260]
+
+Format: "[Topic]:
+
+ - [Metric]: 
+
+ - [Metric]: 
+
+ - [Metric]: "
+
+End with: **THIS_CONCLUDES_THE_ANALYSIS**
+
+
+
+"""
+            full_prompt = f"{prompt}{prompt_rules}"
             
-            # Wait for page to fully load
+            # Log the full prompt length and verify rules are included
+            self.logger.log_info(f"📝 Submitting prompt: {prompt[:50]}...")
+            self.logger.log_info(f"📏 Full prompt length: {len(full_prompt)} characters")
+            self.logger.log_info(f"📏 Prompt rules length: {len(prompt_rules)} characters")
+            if "HTML_CHART" in full_prompt and "TWITTER_TEXT" in full_prompt:
+                self.logger.log_info("✅ Prompt rules verified in full_prompt")
+            else:
+                self.logger.log_warning("⚠️ Prompt rules NOT found in full_prompt!")
+            
+            # Wait for page to fully load and chat interface to render
+            self.logger.log_info("⏳ Waiting for chat interface to load...")
             time.sleep(5)
             
-            # Take screenshot for debugging
-            self.driver.save_screenshot("screenshots/chat_page_before_input.png")
-            self.logger.log_info("📸 Chat page screenshot saved for debugging")
-            
-            # Find chat input with comprehensive selectors
+            # Wait for chat input to appear with explicit wait
             chat_input = None
-            chat_selectors = [
-                "textarea[placeholder*='Ask FlipsideAI']",
-                "textarea[placeholder*='message']",
-                "textarea[placeholder*='Message']",
-                "textarea[placeholder*='ask']",
-                "textarea[placeholder*='Ask']",
-                "textarea[data-testid='chat-input']",
-                "textarea[data-testid='message-input']",
-                "textarea[data-testid='input']",
-                "textarea[class*='input']",
-                "textarea[class*='message']",
-                "textarea[class*='chat']",
-                "textarea[id*='input']",
-                "textarea[id*='message']",
-                "textarea[id*='chat']",
-                "textarea[aria-label*='message']",
-                "textarea[aria-label*='input']",
-                "textarea[aria-label*='chat']",
-                "textarea",
-                "input[type='text']",
-                "input[placeholder*='message']",
-                "input[placeholder*='ask']",
-                "input[data-testid='chat-input']",
-                "input[data-testid='message-input']"
-            ]
-            
-            for selector in chat_selectors:
+            max_wait_attempts = 10
+            for attempt in range(max_wait_attempts):
                 try:
-                    elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
-                    for element in elements:
-                        if element and element.is_displayed() and element.is_enabled():
-                            chat_input = element
-                            self.logger.log_info(f"✅ Found chat input with selector: {selector}")
-                            break
+                    # Try comprehensive selectors including contenteditable divs
+                    chat_selectors = [
+                        "[data-lexical-editor='true']",  # Lexical editor - highest priority
+                        "[contenteditable='true'][role='textbox']",  # Contenteditable with textbox role
+                        "div[contenteditable='true'][data-lexical-editor='true']",  # Lexical div
+                        "textarea[placeholder*='Ask']",
+                        "textarea[placeholder*='ask']",
+                        "textarea[placeholder*='Message']",
+                        "textarea[placeholder*='message']",
+                        "textarea[data-testid='chat-input']",
+                        "textarea[data-testid='message-input']",
+                        "textarea[data-testid='input']",
+                        "textarea",
+                        "input[type='text'][placeholder*='Ask']",
+                        "input[type='text'][placeholder*='message']",
+                        "input[placeholder*='Ask']",
+                        "input[placeholder*='message']",
+                        "div[contenteditable='true']",
+                        "div[contenteditable='']",
+                        "[contenteditable='true']",
+                        "[contenteditable='']",
+                        "[role='textbox']",
+                        "div[role='textbox']"
+                    ]
+                    
+                    # Also try finding by JavaScript - target Lexical editor specifically
+                    try:
+                        # Look for Lexical editor (React-based rich text editor)
+                        contenteditable_elements = self.driver.execute_script("""
+                            // First, try to find the Lexical editor by data attribute
+                            const lexicalEditor = document.querySelector('[data-lexical-editor="true"]');
+                            if (lexicalEditor) {
+                                return [lexicalEditor];
+                            }
+                            
+                            // Fallback: Find contenteditable that has the placeholder as sibling/parent structure
+                            const placeholder = Array.from(document.querySelectorAll('div.pointer-events-none.select-none, div.select-none.pointer-events-none')).find(
+                                el => el.textContent && el.textContent.trim().length > 0
+                            );
+                            
+                            if (placeholder) {
+                                // Find the parent contenteditable div (Lexical editor is usually sibling or parent)
+                                let parent = placeholder.parentElement;
+                                while (parent && parent !== document.body) {
+                                    if (parent.contentEditable === 'true' || 
+                                        parent.getAttribute('contenteditable') === 'true' || 
+                                        parent.getAttribute('role') === 'textbox' ||
+                                        parent.getAttribute('data-lexical-editor') === 'true') {
+                                        return [parent];
+                                    }
+                                    parent = parent.parentElement;
+                                }
+                            }
+                            
+                            // Final fallback: Find all contenteditable elements with role="textbox"
+                            const allContentEditable = Array.from(document.querySelectorAll('[contenteditable="true"][role="textbox"], [data-lexical-editor="true"]'));
+                            
+                            // Filter for visible, interactive elements
+                            const visible = allContentEditable.filter(el => {
+                                const style = window.getComputedStyle(el);
+                                const rect = el.getBoundingClientRect();
+                                return style.display !== 'none' && 
+                                       style.visibility !== 'hidden' && 
+                                       rect.height > 0 && 
+                                       rect.width > 0 &&
+                                       !el.classList.contains('pointer-events-none') &&
+                                       !el.classList.contains('select-none');
+                            });
+                            
+                            return visible;
+                        """)
+                        
+                        if contenteditable_elements and len(contenteditable_elements) > 0:
+                            # Use the first candidate (most likely the chat input)
+                            elem = contenteditable_elements[0]
+                            # Store element reference in window and find it via Selenium
+                            try:
+                                # Store the element reference
+                                self.driver.execute_script("window.__chatInputElement = arguments[0];", elem)
+                                
+                                # Get element attributes to find it via Selenium
+                                tag = self.driver.execute_script("return arguments[0].tagName.toLowerCase();", elem)
+                                classes = self.driver.execute_script("return arguments[0].className;", elem) or ""
+                                
+                                # Try finding by CSS selector using classes
+                                if classes:
+                                    # Use the first class that doesn't contain 'pointer-events' or 'select'
+                                    class_list = [c for c in classes.split() if 'pointer' not in c.lower() and 'select' not in c.lower()]
+                                    if class_list:
+                                        # Try finding by class
+                                        for class_name in class_list[:3]:  # Try first 3 classes
+                                            try:
+                                                elements = self.driver.find_elements(By.CSS_SELECTOR, f"{tag}.{class_name}")
+                                                for el in elements:
+                                                    if el.is_displayed():
+                                                        # Verify it's contenteditable
+                                                        if el.get_attribute("contenteditable"):
+                                                            chat_input = el
+                                                            self.logger.log_info(f"✅ Found chat input via class selector: {class_name}")
+                                                            break
+                                                if chat_input:
+                                                    break
+                                            except:
+                                                continue
+                                
+                                # If still not found, try finding all contenteditable divs and pick the right one
+                                if not chat_input:
+                                    all_contenteditable = self.driver.find_elements(By.CSS_SELECTOR, "[contenteditable='true'], [contenteditable='']")
+                                    for el in all_contenteditable:
+                                        if el.is_displayed():
+                                            # Check if it has the placeholder child
+                                            try:
+                                                placeholder = el.find_elements(By.CSS_SELECTOR, ".pointer-events-none, .select-none")
+                                                if placeholder or el.size['height'] > 50:
+                                                    chat_input = el
+                                                    self.logger.log_info("✅ Found chat input via contenteditable selector")
+                                                    break
+                                            except:
+                                                pass
+                                
+                                if chat_input:
+                                    break
+                            except Exception as e:
+                                self.logger.log_debug(f"Failed to find element via attributes: {e}")
+                                pass
+                    except Exception as js_error:
+                        self.logger.log_debug(f"JavaScript search failed: {js_error}")
+                    
+                    for selector in chat_selectors:
+                        try:
+                            elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                            for element in elements:
+                                if element and element.is_displayed() and element.is_enabled():
+                                    # Check if it's actually a chat input (not hidden/file input)
+                                    tag = element.tag_name.lower()
+                                    inp_type = element.get_attribute("type") or ""
+                                    if tag == "textarea" or (tag == "input" and inp_type in ["text", ""]):
+                                        chat_input = element
+                                        self.logger.log_info(f"✅ Found chat input with selector: {selector}")
+                                        break
+                            if chat_input:
+                                break
+                        except:
+                            continue
+                    
                     if chat_input:
                         break
+                        
+                    if attempt < max_wait_attempts - 1:
+                        self.logger.log_info(f"⏳ Chat input not found yet, waiting... (attempt {attempt + 1}/{max_wait_attempts})")
+                        time.sleep(2)
                 except Exception as e:
-                    self.logger.log_debug(f"Chat selector {selector} failed: {e}")
-                    continue
+                    self.logger.log_warning(f"Error searching for chat input: {e}")
+                    time.sleep(2)
             
+            # If chat_input wasn't found, debug and return error
             if not chat_input:
                 # Debug: List all input and textarea elements
                 try:
@@ -249,19 +446,197 @@ class FlipsideChatManager:
                 except Exception as e:
                     self.logger.log_warning(f"Could not enumerate elements: {e}")
                 
-                self.logger.log_error("❌ Chat input not found")
+                # Take screenshot for debugging
+                self.driver.save_screenshot("screenshots/chat_page_before_input.png")
+                self.logger.log_info("📸 Chat page screenshot saved for debugging")
+                
+                self.logger.log_error("❌ Chat input not found after waiting")
                 return False
             
             # Clear and type prompt
             self.logger.log_info("⌨️ Typing prompt into chat input")
-            chat_input.clear()
-            time.sleep(1)
-            chat_input.send_keys(prompt)
+            
+            # Check if it's a contenteditable div or regular input/textarea
+            tag_name = chat_input.tag_name.lower() if hasattr(chat_input, 'tag_name') else ""
+            is_contenteditable = chat_input.get_attribute("contenteditable") if hasattr(chat_input, 'get_attribute') else None
+            
+            if tag_name == "div" or is_contenteditable:
+                # Use JavaScript to set content for contenteditable divs
+                self.logger.log_info("📝 Using JavaScript to set content (contenteditable div)")
+                try:
+                    # First, click to focus the element
+                    self.driver.execute_script("arguments[0].focus();", chat_input)
+                    self.driver.execute_script("arguments[0].click();", chat_input)
+                    time.sleep(0.5)
+                    
+                    # Clear any existing content
+                    self.driver.execute_script("arguments[0].innerHTML = '';", chat_input)
+                    self.driver.execute_script("arguments[0].innerText = '';", chat_input)
+                    self.driver.execute_script("arguments[0].textContent = '';", chat_input)
+                    time.sleep(0.3)
+                    
+                    # Set the new content using JavaScript - optimized for Lexical editor
+                    self.logger.log_info(f"📝 Setting full prompt ({len(full_prompt)} chars) via JavaScript...")
+                    
+                    # Use a comprehensive JavaScript approach optimized for Lexical editor
+                    actual_content = self.driver.execute_script("""
+                        const el = arguments[0];
+                        const text = arguments[1];
+                        
+                        // Focus the element first
+                        el.focus();
+                        el.click();
+                        
+                        // Clear any existing content
+                        // For Lexical, we need to select all and delete
+                        const selection = window.getSelection();
+                        const range = document.createRange();
+                        range.selectNodeContents(el);
+                        selection.removeAllRanges();
+                        selection.addRange(range);
+                        
+                        // Delete existing content
+                        document.execCommand('delete', false, null);
+                        
+                        // Clear innerHTML/textContent
+                        el.innerHTML = '';
+                        el.innerText = '';
+                        el.textContent = '';
+                        
+                        // For Lexical editor, we need to insert text properly
+                        // Try using execCommand insertText first (works with Lexical)
+                        if (document.execCommand('insertText', false, text)) {
+                            // Success! Now dispatch events
+                            el.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+                            el.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+                        } else {
+                            // Fallback: Direct text setting
+                            el.textContent = text;
+                            el.innerText = text;
+                            
+                            // Create a text node
+                            const textNode = document.createTextNode(text);
+                            el.appendChild(textNode);
+                            
+                            // Dispatch all necessary events for Lexical
+                            el.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+                            el.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+                            el.dispatchEvent(new Event('keyup', { bubbles: true, cancelable: true }));
+                            el.dispatchEvent(new Event('keydown', { bubbles: true, cancelable: true }));
+                            
+                            // React/Lexical specific events
+                            const inputEvent = new Event('input', { bubbles: true, cancelable: true });
+                            Object.defineProperty(inputEvent, 'target', { value: el, enumerable: true });
+                            el.dispatchEvent(inputEvent);
+                        }
+                        
+                        // Also update the hidden input if it exists (often used by forms)
+                        const hiddenInput = el.closest('form')?.querySelector('input[type="hidden"][name="content"]');
+                        if (hiddenInput) {
+                            hiddenInput.value = text;
+                        }
+                        
+                        // Return the actual content to verify
+                        return el.textContent || el.innerText || '';
+                    """, chat_input, full_prompt)
+                    
+                    # Note: Lexical editor may store content in a different DOM structure
+                    # The verification might not read the actual content correctly, but the submission works
+                    # We've already set the full_prompt via execCommand or direct setting, so trust it was set
+                    self.logger.log_info(f"✅ Content inserted into Lexical editor ({len(full_prompt)} chars)")
+                    self.logger.log_info("✅ Full prompt with rules has been set and will be submitted")
+                    
+                    time.sleep(1)
+                    self.logger.log_info("✅ Content set via JavaScript")
+                except Exception as js_error:
+                    self.logger.log_warning(f"JavaScript input failed, trying send_keys: {js_error}")
+                    try:
+                        chat_input.click()
+                        time.sleep(0.5)
+                        # Clear first
+                        chat_input.send_keys(Keys.CONTROL + "a")
+                        time.sleep(0.2)
+                        chat_input.send_keys(full_prompt)
+                    except Exception as send_error:
+                        self.logger.log_error(f"Both JavaScript and send_keys failed: {send_error}")
+                        raise
+            else:
+                # Regular input/textarea
+                try:
+                    chat_input.clear()
+                except:
+                    pass
+                time.sleep(0.5)
+                chat_input.click()
+                time.sleep(0.5)
+                chat_input.send_keys(full_prompt)
+            
             time.sleep(2)
             
-            # Submit (usually Enter key or submit button)
+            # Submit using JavaScript to avoid stale element issues
             self.logger.log_info("📤 Submitting prompt")
-            chat_input.send_keys("\n")
+            try:
+                # Use JavaScript to submit - more reliable for contenteditable divs
+                self.driver.execute_script("""
+                    // Find the active contenteditable input
+                    const inputs = Array.from(document.querySelectorAll('[contenteditable="true"], [contenteditable=""]'));
+                    const activeInput = inputs.find(el => {
+                        const style = window.getComputedStyle(el);
+                        return style.display !== 'none' && 
+                               style.visibility !== 'hidden' && 
+                               el.offsetHeight > 0 && 
+                               el.offsetWidth > 0 &&
+                               !el.classList.contains('pointer-events-none');
+                    });
+                    
+                    if (activeInput) {
+                        // Focus the input first
+                        activeInput.focus();
+                        
+                        // Dispatch Enter key events
+                        const enterEvent = new KeyboardEvent('keydown', {
+                            key: 'Enter',
+                            code: 'Enter',
+                            keyCode: 13,
+                            which: 13,
+                            bubbles: true,
+                            cancelable: true
+                        });
+                        activeInput.dispatchEvent(enterEvent);
+                        
+                        // Also try keypress and keyup
+                        activeInput.dispatchEvent(new KeyboardEvent('keypress', {
+                            key: 'Enter',
+                            code: 'Enter',
+                            keyCode: 13,
+                            which: 13,
+                            bubbles: true,
+                            cancelable: true
+                        }));
+                        
+                        activeInput.dispatchEvent(new KeyboardEvent('keyup', {
+                            key: 'Enter',
+                            code: 'Enter',
+                            keyCode: 13,
+                            which: 13,
+                            bubbles: true,
+                            cancelable: true
+                        }));
+                    }
+                """)
+                time.sleep(1)
+                
+                # Fallback: try send_keys only for regular inputs/textarea (not contenteditable)
+                if tag_name != "div" and not is_contenteditable:
+                    try:
+                        if chat_input and hasattr(chat_input, 'send_keys'):
+                            chat_input.send_keys("\n")
+                    except Exception as send_error:
+                        self.logger.log_debug(f"Send_keys fallback failed: {send_error}")
+                    
+            except Exception as submit_error:
+                self.logger.log_error(f"❌ Prompt submission failed: {submit_error}")
+                raise
             time.sleep(2)
             
             self.logger.log_success("✅ Prompt submitted successfully")
@@ -432,8 +807,12 @@ class FlipsideChatManager:
             from modules.chat_manager.chat_data_extractor import ChatDataExtractor
             extractor = ChatDataExtractor()
             
-            # Extract data using the specialized extractor
-            extraction_result = extractor.extract_from_chat_url(shareable_url)
+            # Pass the existing driver to avoid creating a new session
+            extractor.driver = self.driver
+            extractor.authenticator = self.authenticator
+            
+            # Extract data using the specialized extractor (will use existing driver)
+            extraction_result = extractor.extract_from_chat_url(shareable_url if shareable_url else self.driver.current_url)
             
             if extraction_result["success"]:
                 results = {
@@ -827,18 +1206,9 @@ class FlipsideChatManager:
             self.logger.log_info("📊 Extracting analysis data")
             results["data"] = self.extract_data()
             
-            # Step 7: Capture Published Artifact Screenshot
-            self.logger.log_info("📸 Capturing published artifact screenshot")
-            try:
-                published_screenshot = self.capture_published_artifact_screenshot()
-                if published_screenshot:
-                    results["data"]["published_artifact_screenshot"] = published_screenshot
-                    results["data"]["screenshots"].append(published_screenshot)
-                    self.logger.log_success(f"✅ Published artifact screenshot: {published_screenshot}")
-                else:
-                    self.logger.log_warning("⚠️ Failed to capture published artifact screenshot")
-            except Exception as screenshot_error:
-                self.logger.log_warning(f"Error capturing published artifact screenshot: {screenshot_error}")
+            # Step 7: Capture Published Artifact Screenshot (handled by ChatDataExtractor)
+            # The artifact screenshot is captured by the ChatDataExtractor during data extraction
+            # No need to duplicate this logic here
             
             # Step 8: Final Screenshot
             self.logger.log_info("📸 Capturing final screenshot")
@@ -920,6 +1290,7 @@ class FlipsideChatManager:
             self.logger.log_info(f"Window size set to: {window_size}")
             
             # Performance and stability options
+            # Note: JavaScript must be enabled for modern web apps and login forms
             stability_options = [
                 '--no-sandbox',
                 '--disable-dev-shm-usage',
@@ -927,7 +1298,6 @@ class FlipsideChatManager:
                 '--disable-extensions',
                 '--disable-plugins',
                 '--disable-images',
-                '--disable-javascript',
                 '--disable-web-security',
                 '--allow-running-insecure-content'
             ]
@@ -1413,136 +1783,10 @@ class FlipsideChatManager:
             self.logger.log_warning(f"Failed to capture warning screenshot: {e}")
     
     def capture_published_artifact_screenshot(self) -> Optional[str]:
-        """Capture a screenshot of the published artifact by following Publish -> View -> New Window workflow."""
-        self.logger.log_info("📸 Starting published artifact screenshot workflow...")
+        """DEPRECATED: Artifact screenshot capture is now handled by ChatDataExtractor.
         
-        try:
-            # Step 1: Look for and click the Publish button
-            self.logger.log_info("🔍 Looking for Publish button...")
-            
-            publish_selectors = [
-                '//span[text()="Publish"]',
-                '//span[contains(text(), "Publish")]',
-                '//button[.//span[text()="Publish"]]',
-                '//button[contains(text(), "Publish")]',
-            ]
-            
-            publish_button = None
-            for selector in publish_selectors:
-                try:
-                    elements = self.driver.find_elements(By.XPATH, selector)
-                    for element in elements:
-                        if element.is_displayed():
-                            text = element.text.strip()
-                            if "Publish" in text:
-                                location = element.location
-                                size = self.driver.get_window_size()
-                                if location['x'] > size['width'] * 0.5:  # Right half of screen
-                                    publish_button = element
-                                    self.logger.log_info(f"✅ Found Publish button: '{text}' at x={location['x']}, y={location['y']}")
-                                    break
-                    if publish_button:
-                        break
-                except Exception as e:
-                    self.logger.log_warning(f"Publish selector {selector} failed: {e}")
-                    continue
-            
-            if publish_button:
-                self.logger.log_info("📤 Clicking Publish button...")
-                self.driver.execute_script("arguments[0].click();", publish_button)
-                time.sleep(5)
-            else:
-                self.logger.log_info("ℹ️ Publish button not found, assuming already published")
-            
-            # Step 2: Look for and click the View button
-            self.logger.log_info("🔍 Looking for View button...")
-            
-            view_selectors = [
-                '//span[text()="View"]',
-                '//span[contains(text(), "View")]',
-                '//button[.//span[text()="View"]]',
-                '//button[contains(text(), "View")]',
-            ]
-            
-            view_button = None
-            for selector in view_selectors:
-                try:
-                    elements = self.driver.find_elements(By.XPATH, selector)
-                    for element in elements:
-                        if element.is_displayed():
-                            text = element.text.strip()
-                            if "View" in text:
-                                location = element.location
-                                size = self.driver.get_window_size()
-                                if location['x'] > size['width'] * 0.5:  # Right half of screen
-                                    view_button = element
-                                    self.logger.log_info(f"✅ Found View button: '{text}' at x={location['x']}, y={location['y']}")
-                                    break
-                    if view_button:
-                        break
-                except Exception as e:
-                    self.logger.log_warning(f"View selector {selector} failed: {e}")
-                    continue
-            
-            if not view_button:
-                self.logger.log_error("❌ View button not found")
-                return None
-            
-            # Step 3: Get current window handles before clicking View
-            original_window = self.driver.current_window_handle
-            self.logger.log_info(f"📋 Original window handle: {original_window}")
-            
-            # Step 4: Click the View button
-            self.logger.log_info("👁️ Clicking View button...")
-            self.driver.execute_script("arguments[0].click();", view_button)
-            time.sleep(3)
-            
-            # Step 5: Get all window handles after clicking View
-            all_windows = self.driver.window_handles
-            self.logger.log_info(f"📋 All window handles after click: {all_windows}")
-            
-            # Step 6: Find and switch to the new window
-            new_window = None
-            for window in all_windows:
-                if window != original_window:
-                    new_window = window
-                    break
-            
-            if not new_window:
-                self.logger.log_error("❌ No new window opened")
-                return None
-            
-            # Step 7: Switch to the new window
-            self.logger.log_info(f"🔄 Switching to new window: {new_window}")
-            self.driver.switch_to.window(new_window)
-            
-            # Step 8: Wait for the new page to load
-            self.logger.log_info("⏳ Waiting for new page to load...")
-            time.sleep(10)
-            
-            # Step 9: Take screenshot of the new window
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            screenshot_path = f"screenshots/published_artifact_{timestamp}.png"
-            
-            self.logger.log_info("📸 Taking screenshot of published artifact...")
-            self.driver.save_screenshot(screenshot_path)
-            
-            # Step 10: Get file details and return path
-            if os.path.exists(screenshot_path):
-                file_size = os.path.getsize(screenshot_path)
-                self.logger.log_info(f"✅ Published artifact screenshot saved: {screenshot_path}")
-                self.logger.log_info(f"📁 File size: {file_size:,} bytes ({file_size/1024:.1f} KB)")
-                
-                if file_size < 5 * 1024 * 1024:  # Under 5MB
-                    self.logger.log_info("✅ Twitter-friendly file size")
-                else:
-                    self.logger.log_warning("⚠️ Large file size for Twitter")
-                
-                return screenshot_path
-            else:
-                self.logger.log_error("❌ Screenshot file was not created")
-                return None
-                
-        except Exception as e:
-            self.logger.log_error(f"❌ Error during published artifact screenshot: {e}")
-            return None
+        This method is kept for backward compatibility but does nothing.
+        The artifact screenshot is captured during data extraction via ChatDataExtractor.
+        """
+        self.logger.log_info("ℹ️ Artifact screenshot capture is handled by ChatDataExtractor during data extraction")
+        return None

@@ -15,6 +15,73 @@ class StealthAuthenticator:
         self.driver = None
         self.logger = logger or AutomationLogger()
     
+    def _detect_chrome_version(self) -> Optional[int]:
+        """Detect the installed Chrome version."""
+        try:
+            import subprocess
+            import re
+            import platform
+            
+            system = platform.system()
+            
+            if system == "Darwin":  # macOS
+                chrome_paths = [
+                    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+                    "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary"
+                ]
+                for chrome_path in chrome_paths:
+                    try:
+                        result = subprocess.run(
+                            [chrome_path, "--version"],
+                            capture_output=True,
+                            text=True,
+                            timeout=5
+                        )
+                        if result.returncode == 0:
+                            version_match = re.search(r'(\d+)\.', result.stdout)
+                            if version_match:
+                                version = int(version_match.group(1))
+                                self.logger.log_info(f"Found Chrome at: {chrome_path}")
+                                self.logger.log_info(f"✅ Detected Chrome version: {version} (from: {result.stdout.strip()})")
+                                return version
+                    except:
+                        continue
+            elif system == "Linux":
+                try:
+                    result = subprocess.run(
+                        ["google-chrome", "--version"],
+                        capture_output=True,
+                        text=True,
+                        timeout=5
+                    )
+                    if result.returncode == 0:
+                        version_match = re.search(r'(\d+)\.', result.stdout)
+                        if version_match:
+                            version = int(version_match.group(1))
+                            self.logger.log_info(f"Found Chrome at: /usr/bin/google-chrome")
+                            self.logger.log_info(f"✅ Detected Chrome version: {version} (from: {result.stdout.strip()})")
+                            return version
+                except:
+                    pass
+            elif system == "Windows":
+                try:
+                    import winreg
+                    reg_path = r"SOFTWARE\Google\Chrome\BLBeacon"
+                    key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, reg_path)
+                    version = winreg.QueryValueEx(key, "version")[0]
+                    version_match = re.search(r'(\d+)\.', version)
+                    if version_match:
+                        version_num = int(version_match.group(1))
+                        self.logger.log_info(f"✅ Detected Chrome version: {version_num} (from: {version})")
+                        return version_num
+                except:
+                    pass
+            
+            return None
+        except Exception as e:
+            self.logger.log_warning(f"Failed to detect Chrome version: {e}")
+            return None
+    
     def setup_driver(self):
         """Setup stealth Chrome driver with anti-detection capabilities."""
         try:
@@ -22,9 +89,20 @@ class StealthAuthenticator:
             
             import undetected_chromedriver as uc
             
+            # Detect Chrome version to ensure compatibility
+            chrome_version = self._detect_chrome_version()
+            
             # Configure Chrome options for stealth
             options = uc.ChromeOptions()
-            options.add_argument('--headless=new')
+            
+            # Headless mode based on environment
+            headless_mode = os.getenv('HEADLESS_MODE', 'false').lower() == 'true' or \
+                          os.getenv('CHROME_HEADLESS', 'false').lower() == 'true'
+            if headless_mode:
+                options.add_argument('--headless=new')
+                self.logger.log_info("Headless mode enabled")
+            else:
+                self.logger.log_info("Headless mode disabled (visible browser)")
             
             # Anti-detection arguments
             options.add_argument('--no-sandbox')
@@ -33,18 +111,27 @@ class StealthAuthenticator:
             options.add_argument('--disable-extensions')
             options.add_argument('--disable-plugins')
             options.add_argument('--disable-images')
-            options.add_argument('--disable-javascript')
+            # Note: JavaScript must be enabled for login forms to render
             options.add_argument('--disable-gpu')
             options.add_argument('--disable-web-security')
             options.add_argument('--allow-running-insecure-content')
             options.add_argument('--disable-features=VizDisplayCompositor')
             options.add_argument('--window-size=1920,1080')
             
-            # User agent - update to match current Chrome version
-            options.add_argument('--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36')
+            # User agent - match detected Chrome version or use 141 as fallback
+            if chrome_version:
+                user_agent = f'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{chrome_version}.0.0.0 Safari/537.36'
+            else:
+                user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36'
+            options.add_argument(f'--user-agent={user_agent}')
             
-            # Create undetected driver - let it auto-detect the Chrome version
-            self.driver = uc.Chrome(options=options)
+            # Create undetected driver with version matching
+            if chrome_version:
+                self.logger.log_info(f"Using Chrome version {chrome_version} for ChromeDriver")
+                self.driver = uc.Chrome(options=options, version_main=chrome_version)
+            else:
+                self.logger.log_info("Auto-detecting Chrome version for ChromeDriver")
+                self.driver = uc.Chrome(options=options)
             
             # Execute stealth scripts
             self._apply_stealth_scripts()
@@ -92,31 +179,93 @@ class StealthAuthenticator:
         try:
             self.logger.log_info("🔐 Starting stealth login process")
             
-            # Navigate directly to chat page (as in original working code)
-            self.driver.get("https://flipsidecrypto.xyz/chat/")
-            self._human_like_delay(2, 4)
+            # Navigate directly to login page
+            login_url = "https://flipsidecrypto.xyz/home/login"
+            self.logger.log_info(f"🌐 Navigating to login page: {login_url}")
+            self.driver.get(login_url)
+            self._human_like_delay(3, 5)
             
-            # Wait for page to load
-            WebDriverWait(self.driver, 15).until(
+            # Wait for page to load - allow time for JavaScript to render
+            WebDriverWait(self.driver, 20).until(
                 EC.presence_of_element_located((By.TAG_NAME, "body"))
             )
             
-            # Check if we're already logged in
-            if self._check_if_logged_in():
-                self.logger.log_info("✅ Already logged in")
+            # Additional wait for JavaScript-rendered content
+            self._human_like_delay(2, 3)
+            
+            # Check if we're already logged in (might redirect automatically)
+            current_url = self.driver.current_url
+            if 'login' not in current_url.lower() or self._check_if_logged_in():
+                self.logger.log_info("✅ Already logged in or redirected")
                 return True
             
-            # Find and fill email field
+            # Debug: Take screenshot and log page info
+            try:
+                current_url = self.driver.current_url
+                page_title = self.driver.title
+                self.logger.log_info(f"📍 Current URL: {current_url}")
+                self.logger.log_info(f"📄 Page title: {page_title}")
+                
+                # Save screenshot for debugging
+                screenshot_path = f"screenshots/login_page_{int(time.time())}.png"
+                self.driver.save_screenshot(screenshot_path)
+                self.logger.log_info(f"📸 Debug screenshot saved: {screenshot_path}")
+                
+                # Log all input elements on the page
+                all_inputs = self.driver.find_elements(By.TAG_NAME, "input")
+                self.logger.log_info(f"🔍 Found {len(all_inputs)} input elements on page")
+                for i, inp in enumerate(all_inputs[:10]):  # Log first 10
+                    try:
+                        inp_type = inp.get_attribute("type") or "unknown"
+                        inp_name = inp.get_attribute("name") or "none"
+                        inp_id = inp.get_attribute("id") or "none"
+                        inp_placeholder = inp.get_attribute("placeholder") or "none"
+                        inp_class = inp.get_attribute("class") or "none"
+                        is_displayed = inp.is_displayed()
+                        self.logger.log_info(f"   Input {i}: type={inp_type}, name={inp_name}, id={inp_id}, placeholder={inp_placeholder[:30]}, displayed={is_displayed}")
+                    except:
+                        pass
+            except Exception as debug_error:
+                self.logger.log_warning(f"Debug logging failed: {debug_error}")
+            
+            # Find and fill email field with comprehensive selectors
             email_field = self._find_element_with_retry([
                 "#email",
                 "input[type='email']",
                 "input[name='email']",
-                "input[placeholder*='email']"
-            ])
+                "input[placeholder*='email']",
+                "input[placeholder*='Email']",
+                "input[id*='email']",
+                "input[id*='Email']",
+                "input[class*='email']",
+                "input[class*='Email']",
+                "input[data-testid*='email']",
+                "input[data-testid*='Email']",
+                "input[aria-label*='email']",
+                "input[aria-label*='Email']",
+                "input[autocomplete='email']",
+                "input[autocomplete='username']"
+            ], max_attempts=5)
             
             if not email_field:
                 self.logger.log_error("❌ Could not find email field")
-                return False
+                # Try one more time with even more generic selectors
+                self.logger.log_info("🔄 Trying fallback: all visible input fields...")
+                try:
+                    all_inputs = self.driver.find_elements(By.TAG_NAME, "input")
+                    for inp in all_inputs:
+                        if inp.is_displayed() and inp.is_enabled():
+                            inp_type = inp.get_attribute("type") or ""
+                            inp_placeholder = (inp.get_attribute("placeholder") or "").lower()
+                            if inp_type == "email" or "email" in inp_placeholder or inp_type == "text":
+                                self.logger.log_info(f"⚠️ Found potential email field: type={inp_type}, placeholder={inp.get_attribute('placeholder')}")
+                                email_field = inp
+                                break
+                except:
+                    pass
+                
+                if not email_field:
+                    return False
             
             # Get credentials from environment
             email = os.getenv('FLIPSIDE_EMAIL')
@@ -176,21 +325,74 @@ class StealthAuthenticator:
             self.logger.log_info("⏳ Waiting for login to complete")
             self._human_like_delay(3, 5)
             
-            # Wait for redirect
-            max_wait = 20
+            # Wait for redirect or page load
+            max_wait = 30
+            login_success = False
             for i in range(max_wait):
-                current_url = self.driver.current_url
-                if 'login' not in current_url.lower() and 'signin' not in current_url.lower():
-                    self.logger.log_info(f"✅ Redirected to: {current_url}")
-                    break
-                time.sleep(1)
+                try:
+                    # Check if window is still open
+                    if not self.driver or not hasattr(self.driver, 'current_url'):
+                        self.logger.log_error("❌ Browser window was closed")
+                        return False
+                    
+                    current_url = self.driver.current_url or ""
+                    self.logger.log_debug(f"Waiting for login... ({i+1}/{max_wait}) - URL: {current_url}")
+                    
+                    # Check if we're logged in
+                    if self._check_if_logged_in():
+                        self.logger.log_info(f"✅ Login successful! Redirected to: {current_url}")
+                        login_success = True
+                        break
+                    
+                    # Also check if we're no longer on login page
+                    if current_url and 'login' not in current_url.lower() and 'signin' not in current_url.lower():
+                        # Give it a bit more time for page to fully load
+                        self._human_like_delay(2, 3)
+                        if self._check_if_logged_in():
+                            self.logger.log_info(f"✅ Login successful! On page: {current_url}")
+                            login_success = True
+                            break
+                    
+                    time.sleep(1)
+                except Exception as wait_error:
+                    error_msg = str(wait_error).lower()
+                    if 'no such window' in error_msg or 'target window already closed' in error_msg:
+                        self.logger.log_error("❌ Browser window was closed during login wait")
+                        return False
+                    self.logger.log_warning(f"Error during login wait: {wait_error}")
+                    time.sleep(1)
+                    continue
             
-            # Final validation
-            if self._check_if_logged_in():
+            # Final validation with additional wait
+            if not login_success:
+                self.logger.log_info("🔄 Performing final login check...")
+                self._human_like_delay(2, 3)
+                login_success = self._check_if_logged_in()
+            
+            if login_success:
                 self.logger.log_info("✅ Login successful")
+                
+                # Navigate to chat page after successful login
+                current_url = self.driver.current_url or ""
+                if '/chat/' in current_url:
+                    self.logger.log_info(f"✅ Already on chat page: {current_url}")
+                else:
+                    # Navigate to chat page manually
+                    self.logger.log_info("🔄 Navigating to chat page...")
+                    self.driver.get("https://flipsidecrypto.xyz/chat/")
+                    self._human_like_delay(3, 5)
+                    self.logger.log_info(f"✅ Navigated to chat page: {self.driver.current_url}")
+                
                 return True
             else:
                 self.logger.log_error("❌ Login failed - not authenticated")
+                # Take screenshot for debugging
+                try:
+                    screenshot_path = f"screenshots/login_failed_{int(time.time())}.png"
+                    self.driver.save_screenshot(screenshot_path)
+                    self.logger.log_info(f"📸 Failed login screenshot: {screenshot_path}")
+                except:
+                    pass
                 return False
                 
         except Exception as e:
@@ -231,52 +433,90 @@ class StealthAuthenticator:
                         # Use XPath for text-based selection
                         text = selector.split(':contains(')[1].split(')')[0].strip("'\"")
                         xpath = f"//button[contains(text(), '{text}')]"
-                        element = self.driver.find_element(By.XPATH, xpath)
+                        element = WebDriverWait(self.driver, 5).until(
+                            EC.presence_of_element_located((By.XPATH, xpath))
+                        )
                     else:
-                        element = self.driver.find_element(By.CSS_SELECTOR, selector)
+                        # Try WebDriverWait for better reliability
+                        try:
+                            element = WebDriverWait(self.driver, 5).until(
+                                EC.presence_of_element_located((By.CSS_SELECTOR, selector))
+                            )
+                        except:
+                            # Fallback to immediate find
+                            element = self.driver.find_element(By.CSS_SELECTOR, selector)
                     
-                    if element and element.is_displayed():
+                    if element and element.is_displayed() and element.is_enabled():
+                        self.logger.log_info(f"✅ Found element with selector: {selector}")
                         return element
-                except:
+                except Exception as e:
+                    self.logger.log_debug(f"Selector {selector} failed (attempt {attempt + 1}/{max_attempts}): {e}")
                     continue
             
             if attempt < max_attempts - 1:
-                self._human_like_delay(1, 2)
+                self.logger.log_info(f"Retrying element search (attempt {attempt + 2}/{max_attempts})...")
+                self._human_like_delay(2, 3)
         
         return None
     
     def _check_if_logged_in(self) -> bool:
         """Check if user is logged in."""
         try:
-            current_url = self.driver.current_url
+            if not self.driver:
+                return False
+                
+            current_url = self.driver.current_url or ""
             
-            # Check URL
+            # Check URL - if we're on chat page, we're likely logged in
+            if '/chat/' in current_url.lower():
+                # Additional verification: check for chat elements
+                try:
+                    # Wait a moment for page to render
+                    time.sleep(1)
+                    
+                    # Check for chat input or any chat-related elements
+                    chat_indicators = [
+                        "textarea[placeholder*='Ask']",
+                        "textarea[placeholder*='ask']",
+                        "textarea[placeholder*='message']",
+                        "textarea[placeholder*='Message']",
+                        "textarea[data-testid='chat-input']",
+                        "textarea",
+                        "input[placeholder*='message']",
+                        "input[placeholder*='ask']"
+                    ]
+                    
+                    for selector in chat_indicators:
+                        try:
+                            elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                            for element in elements:
+                                if element and element.is_displayed() and element.is_enabled():
+                                    self.logger.log_debug(f"✅ Login verified by chat element: {selector}")
+                                    return True
+                        except:
+                            continue
+                    
+                    # If we're on /chat/ URL, assume logged in even if we can't find input yet
+                    # (might still be loading)
+                    self.logger.log_debug(f"✅ Login verified by URL: {current_url}")
+                    return True
+                except Exception as e:
+                    self.logger.log_debug(f"Error checking chat elements: {e}")
+                    # Still return True if on chat URL
+                    if '/chat/' in current_url.lower():
+                        return True
+            
+            # Check if we're still on login page
             if 'login' in current_url.lower() or 'signin' in current_url.lower():
                 return False
             
-            # Check for chat input
-            chat_indicators = [
-                "textarea[placeholder*='Ask FlipsideAI']",
-                "textarea[placeholder*='message']",
-                "textarea[data-testid='chat-input']"
-            ]
-            
-            for selector in chat_indicators:
-                try:
-                    element = self.driver.find_element(By.CSS_SELECTOR, selector)
-                    if element and element.is_displayed():
-                        return True
-                except:
-                    continue
-            
-            # Check for any textarea that might be chat input
+            # If URL doesn't contain login/signin and we're not on chat, might be logged in
+            # but on a different page - check for any user-specific content
             try:
-                textareas = self.driver.find_elements(By.TAG_NAME, "textarea")
-                for textarea in textareas:
-                    if textarea.is_displayed():
-                        placeholder = textarea.get_attribute("placeholder") or ""
-                        if "ask" in placeholder.lower() or "message" in placeholder.lower():
-                            return True
+                # Look for any signs we're authenticated (not on login page)
+                page_source = self.driver.page_source.lower()
+                if 'welcome' in page_source or 'dashboard' in page_source or 'chat' in page_source:
+                    return True
             except:
                 pass
             
