@@ -1,5 +1,8 @@
 import os
+import sys
 import time
+import subprocess
+import re
 from typing import Optional
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -116,7 +119,6 @@ class StealthAuthenticator:
             options.add_argument('--disable-web-security')
             options.add_argument('--allow-running-insecure-content')
             options.add_argument('--disable-features=VizDisplayCompositor')
-            options.add_argument('--window-size=1920,1080')
             
             # User agent - match detected Chrome version or use 141 as fallback
             if chrome_version:
@@ -141,7 +143,22 @@ class StealthAuthenticator:
             
         except Exception as e:
             self.logger.log_error(f"Stealth driver setup failed: {e}")
-            return None
+            # Try fallback with no version specified
+            try:
+                self.logger.log_info("Attempting fallback with auto-detection...")
+                import undetected_chromedriver as uc
+                options = uc.ChromeOptions()
+                if os.getenv('CHROME_HEADLESS', 'false').lower() == 'true':
+                    options.add_argument('--headless=new')
+                options.add_argument('--no-sandbox')
+                options.add_argument('--disable-dev-shm-usage')
+                self.driver = uc.Chrome(options=options)
+                self._apply_stealth_scripts()
+                self.logger.log_success("✅ Fallback driver setup successful")
+                return self.driver
+            except Exception as fallback_error:
+                self.logger.log_error(f"Fallback driver setup also failed: {fallback_error}")
+                return None
     
     def _apply_stealth_scripts(self):
         """Apply JavaScript stealth scripts to avoid detection."""
