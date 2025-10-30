@@ -37,6 +37,41 @@ class ChatDataExtractor:
         os.makedirs("screenshots", exist_ok=True)
         os.makedirs("logs", exist_ok=True)
     
+    def _is_user_message(self, element) -> bool:
+        """Check if an element is part of a user message (not assistant response)."""
+        try:
+            # Use JavaScript to traverse up the DOM tree and check for data-message-role="user"
+            script = """
+            var element = arguments[0];
+            var current = element;
+            var maxDepth = 10;
+            var depth = 0;
+            
+            while (current && depth < maxDepth) {
+                var role = current.getAttribute('data-message-role');
+                if (role === 'user') {
+                    return true;
+                }
+                // Also check if element is inside a container with data-message-role="user"
+                var parent = current.parentElement;
+                if (!parent) break;
+                current = parent;
+                depth++;
+            }
+            return false;
+            """
+            is_user = self.driver.execute_script(script, element)
+            return bool(is_user)
+        except Exception as e:
+            # If JavaScript check fails, fallback to checking the element directly
+            try:
+                role = element.get_attribute("data-message-role")
+                if role == "user":
+                    return True
+            except:
+                pass
+            return False
+    
     def extract_from_chat_url(self, chat_url: str) -> Dict[str, Any]:
         """Extract Twitter text and capture artifacts from a chat URL."""
         results = {
@@ -181,14 +216,14 @@ class ChatDataExtractor:
             self.driver.save_screenshot(debug_screenshot)
             self.logger.log_info(f"📸 Debug screenshot saved: {debug_screenshot}")
             
-            # Look for the new Twitter text format with comprehensive selectors
+            # Look for the new Twitter text format with comprehensive selectors (excluding user messages)
             twitter_selectors = [
-                "//div[contains(text(), 'TWITTER_TEXT:')]",
-                "//div[contains(text(), 'Add a quick 260 character summary')]",
-                "//span[contains(text(), 'TWITTER_TEXT:')]",
-                "//p[contains(text(), 'TWITTER_TEXT:')]",
-                "//*[contains(text(), 'TWITTER_TEXT:')]",
-                "//*[contains(text(), 'Add a quick 260 character summary')]"
+                "//div[contains(text(), 'TWITTER_TEXT:') and not(ancestor::*[@data-message-role='user'])]",
+                "//div[contains(text(), 'Add a quick 260 character summary') and not(ancestor::*[@data-message-role='user'])]",
+                "//span[contains(text(), 'TWITTER_TEXT:') and not(ancestor::*[@data-message-role='user'])]",
+                "//p[contains(text(), 'TWITTER_TEXT:') and not(ancestor::*[@data-message-role='user'])]",
+                "//*[contains(text(), 'TWITTER_TEXT:') and not(ancestor::*[@data-message-role='user'])]",
+                "//*[contains(text(), 'Add a quick 260 character summary') and not(ancestor::*[@data-message-role='user'])]"
             ]
             
             for selector in twitter_selectors:
@@ -197,6 +232,11 @@ class ChatDataExtractor:
                     self.logger.log_debug(f"Found {len(elements)} elements for selector: {selector}")
                     
                     for i, element in enumerate(elements):
+                        # Skip user messages - only process assistant responses
+                        if self._is_user_message(element):
+                            self.logger.log_debug(f"Skipping element {i} - user message")
+                            continue
+                            
                         if element.is_displayed() and element.text.strip():
                             text_content = element.text.strip()
                             self.logger.log_debug(f"Element {i} text: {text_content[:100]}...")
@@ -262,19 +302,23 @@ class ChatDataExtractor:
             # Fallback: Look for any text that might be Twitter content
             self.logger.log_info("🔍 Trying fallback Twitter text extraction")
             try:
-                # Look for text containing "260 character" or similar
+                # Look for text containing "260 character" or similar (excluding user messages)
                 twitter_fallback_selectors = [
-                    "//div[contains(text(), '260')]",
-                    "//div[contains(text(), 'character')]",
-                    "//div[contains(text(), 'summary')]",
-                    "//*[contains(text(), '260')]",
-                    "//*[contains(text(), 'character')]"
+                    "//div[contains(text(), '260') and not(ancestor::*[@data-message-role='user'])]",
+                    "//div[contains(text(), 'character') and not(ancestor::*[@data-message-role='user'])]",
+                    "//div[contains(text(), 'summary') and not(ancestor::*[@data-message-role='user'])]",
+                    "//*[contains(text(), '260') and not(ancestor::*[@data-message-role='user'])]",
+                    "//*[contains(text(), 'character') and not(ancestor::*[@data-message-role='user'])]"
                 ]
                 
                 for selector in twitter_fallback_selectors:
                     try:
                         elements = self.driver.find_elements(By.XPATH, selector)
                         for element in elements:
+                            # Skip user messages - only process assistant responses
+                            if self._is_user_message(element):
+                                continue
+                                
                             if element.is_displayed() and element.text.strip():
                                 text_content = element.text.strip()
                                 if len(text_content) > 50 and len(text_content) < 300:

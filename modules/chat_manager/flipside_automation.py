@@ -646,6 +646,41 @@ End with: **THIS_CONCLUDES_THE_ANALYSIS**
             self.logger.log_error(f"Prompt submission failed: {e}")
             return False
     
+    def _is_user_message(self, element) -> bool:
+        """Check if an element is part of a user message (not assistant response)."""
+        try:
+            # Use JavaScript to traverse up the DOM tree and check for data-message-role="user"
+            script = """
+            var element = arguments[0];
+            var current = element;
+            var maxDepth = 10;
+            var depth = 0;
+            
+            while (current && depth < maxDepth) {
+                var role = current.getAttribute('data-message-role');
+                if (role === 'user') {
+                    return true;
+                }
+                // Also check if element is inside a container with data-message-role="user"
+                var parent = current.parentElement;
+                if (!parent) break;
+                current = parent;
+                depth++;
+            }
+            return false;
+            """
+            is_user = self.driver.execute_script(script, element)
+            return bool(is_user)
+        except Exception as e:
+            # If JavaScript check fails, fallback to checking the element directly
+            try:
+                role = element.get_attribute("data-message-role")
+                if role == "user":
+                    return True
+            except:
+                pass
+            return False
+    
     def wait_for_response(self, timeout: int = 600) -> bool:
         """Wait for complete AI response including charts and visualizations."""
         try:
@@ -659,13 +694,13 @@ End with: **THIS_CONCLUDES_THE_ANALYSIS**
             
             while time.time() - start_time < timeout:
                 try:
-                    # Look for the new analysis conclusion marker
+                    # Look for the new analysis conclusion marker (excluding user messages)
                     conclusion_found = False
                     conclusion_selectors = [
-                        "//div[contains(text(), 'THIS_CONCLUDES_THE_ANALYSIS')]",
-                        "//div[contains(text(), '**THIS_CONCLUDES_THE_ANALYSIS**')]",
-                        "//span[contains(text(), 'THIS_CONCLUDES_THE_ANALYSIS')]",
-                        "//p[contains(text(), 'THIS_CONCLUDES_THE_ANALYSIS')]"
+                        "//div[contains(text(), 'THIS_CONCLUDES_THE_ANALYSIS') and not(ancestor::*[@data-message-role='user'])]",
+                        "//div[contains(text(), '**THIS_CONCLUDES_THE_ANALYSIS**') and not(ancestor::*[@data-message-role='user'])]",
+                        "//span[contains(text(), 'THIS_CONCLUDES_THE_ANALYSIS') and not(ancestor::*[@data-message-role='user'])]",
+                        "//p[contains(text(), 'THIS_CONCLUDES_THE_ANALYSIS') and not(ancestor::*[@data-message-role='user'])]"
                     ]
                     
                     for selector in conclusion_selectors:
@@ -673,6 +708,10 @@ End with: **THIS_CONCLUDES_THE_ANALYSIS**
                             elements = self.driver.find_elements(By.XPATH, selector)
                             for element in elements:
                                 if element.is_displayed() and element.text.strip():
+                                    # Check if this is a user message - if so, skip it
+                                    if self._is_user_message(element):
+                                        self.logger.log_debug("Skipping conclusion marker in user message")
+                                        continue
                                     conclusion_found = True
                                     self.logger.log_success("Analysis conclusion marker found!")
                                     break
@@ -681,16 +720,14 @@ End with: **THIS_CONCLUDES_THE_ANALYSIS**
                         except:
                             continue
                     
-                    # Look for Twitter text output (indicates response started)
+                    # Look for Twitter text output (indicates response started) - excluding user messages
                     twitter_found = False
                     twitter_selectors = [
-                        "//div[contains(text(), 'TWITTER_TEXT:')]",
-                        "//div[contains(text(), 'Add a quick 260 character summary')]",
-                        "[data-testid='twitter-text']",
-                        ".twitter-text",
-                        ".twitter-output",
-                        "div:contains('TWITTER_TEXT')",
-                        "div:contains('Twitter')"
+                        "//div[contains(text(), 'TWITTER_TEXT:') and not(ancestor::*[@data-message-role='user'])]",
+                        "//div[contains(text(), 'Add a quick 260 character summary') and not(ancestor::*[@data-message-role='user'])]",
+                        "[data-testid='twitter-text']:not([data-message-role='user']), [data-testid='twitter-text']:not(:has([data-message-role='user']))",
+                        ".twitter-text:not([data-message-role='user'])",
+                        ".twitter-output:not([data-message-role='user'])"
                     ]
                     
                     for selector in twitter_selectors:
@@ -701,6 +738,10 @@ End with: **THIS_CONCLUDES_THE_ANALYSIS**
                                 elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
                             for element in elements:
                                 if element.is_displayed() and element.text.strip():
+                                    # Check if this is a user message - if so, skip it
+                                    if self._is_user_message(element):
+                                        self.logger.log_debug("Skipping Twitter text in user message")
+                                        continue
                                     twitter_found = True
                                     self.logger.log_success("Twitter text output found")
                                     break
@@ -867,28 +908,12 @@ End with: **THIS_CONCLUDES_THE_ANALYSIS**
                 except:
                     pass
             
-            # Extract Twitter text output with new format
+            # Extract Twitter text output with new format (excluding user messages)
             twitter_selectors = [
-                "//div[contains(text(), 'TWITTER_TEXT:')]",
-                "//div[contains(text(), 'Add a quick 260 character summary')]",
-                "//div[contains(text(), 'TWITTER_TEXT')]",
-                "//div[contains(text(), '**TWITTER_TEXT**')]",
-                "[data-testid='twitter-text']",
-                ".twitter-text",
-                ".twitter-output",
-                ".message-content",
-                ".chat-response",
-                ".response-text",
-                ".analysis-result",
-                ".message",
-                ".response",
-                "[class*='message']",
-                "[class*='response']",
-                "[class*='content']",
-                "div[class*='text']",
-                "p",
-                "span",
-                "div"
+                "//div[contains(text(), 'TWITTER_TEXT:') and not(ancestor::*[@data-message-role='user'])]",
+                "//div[contains(text(), 'Add a quick 260 character summary') and not(ancestor::*[@data-message-role='user'])]",
+                "//div[contains(text(), 'TWITTER_TEXT') and not(ancestor::*[@data-message-role='user'])]",
+                "//div[contains(text(), '**TWITTER_TEXT**') and not(ancestor::*[@data-message-role='user'])]"
             ]
             
             for selector in twitter_selectors:
@@ -899,6 +924,10 @@ End with: **THIS_CONCLUDES_THE_ANALYSIS**
                         elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
                     
                     for i, element in enumerate(elements):
+                        # Skip user messages - only process assistant responses
+                        if self._is_user_message(element):
+                            continue
+                            
                         if element.is_displayed() and element.text.strip():
                             text_content = element.text.strip()
                             
@@ -1098,21 +1127,21 @@ End with: **THIS_CONCLUDES_THE_ANALYSIS**
                 except:
                     continue
             
-            # Check if analysis conclusion marker was found
+            # Check if analysis conclusion marker was found (excluding user messages)
             conclusion_found = False
             try:
                 conclusion_selectors = [
-                    "//div[contains(text(), 'THIS_CONCLUDES_THE_ANALYSIS')]",
-                    "//div[contains(text(), '**THIS_CONCLUDES_THE_ANALYSIS**')]",
-                    "//span[contains(text(), 'THIS_CONCLUDES_THE_ANALYSIS')]",
-                    "//p[contains(text(), 'THIS_CONCLUDES_THE_ANALYSIS')]"
+                    "//div[contains(text(), 'THIS_CONCLUDES_THE_ANALYSIS') and not(ancestor::*[@data-message-role='user'])]",
+                    "//div[contains(text(), '**THIS_CONCLUDES_THE_ANALYSIS**') and not(ancestor::*[@data-message-role='user'])]",
+                    "//span[contains(text(), 'THIS_CONCLUDES_THE_ANALYSIS') and not(ancestor::*[@data-message-role='user'])]",
+                    "//p[contains(text(), 'THIS_CONCLUDES_THE_ANALYSIS') and not(ancestor::*[@data-message-role='user'])]"
                 ]
                 
                 for selector in conclusion_selectors:
                     try:
                         elements = self.driver.find_elements(By.XPATH, selector)
                         for element in elements:
-                            if element.is_displayed() and element.text.strip():
+                            if element.is_displayed() and element.text.strip() and not self._is_user_message(element):
                                 conclusion_found = True
                                 break
                         if conclusion_found:
