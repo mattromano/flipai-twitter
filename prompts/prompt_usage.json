@@ -27,7 +27,10 @@
     81,
     66,
     86,
-    88
+    88,
+    91,
+    76,
+    70
   ],
   "usage_history": [
     {
@@ -253,8 +256,32 @@
       "category": "Simple Trending Analysis",
       "difficulty": "easy",
       "prompt_text": "Which tokens had the highest transfer volume growth yesterday?"
+    },
+    {
+      "prompt_id": 91,
+      "used_at": "2025-10-30T14:00:28.085329",
+      "timestamp": "2025-10-30 14:00:28",
+      "category": "Basic Governance",
+      "difficulty": "easy",
+      "prompt_text": "How many governance votes were cast on major DAOs last week?"
+    },
+    {
+      "prompt_id": 76,
+      "used_at": "2025-10-30T14:03:42.565135",
+      "timestamp": "2025-10-30 14:03:42",
+      "category": "NFT Market Basics",
+      "difficulty": "easy",
+      "prompt_text": "Track daily NFT sales volume on Ethereum over the past 3 weeks"
+    },
+    {
+      "prompt_id": 70,
+      "used_at": "2025-10-30T14:06:33.587951",
+      "timestamp": "2025-10-30 14:06:33",
+      "category": "Token Analysis",
+      "difficulty": "easy",
+      "prompt_text": "Show wrapped ETH (WETH) usage trends across all chains this month"
     }
   ],
   "last_reset": null,
-  "total_runs": 28
+  "total_runs": 31
 }
