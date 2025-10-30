@@ -30,7 +30,14 @@
     88,
     91,
     76,
-    70
+    70,
+    63,
+    74,
+    69,
+    98,
+    84,
+    87,
+    73
   ],
   "usage_history": [
     {
@@ -280,8 +287,64 @@
       "category": "Token Analysis",
       "difficulty": "easy",
       "prompt_text": "Show wrapped ETH (WETH) usage trends across all chains this month"
+    },
+    {
+      "prompt_id": 63,
+      "used_at": "2025-10-30T14:23:22.507404",
+      "timestamp": "2025-10-30 14:23:22",
+      "category": "User Behavior Basics",
+      "difficulty": "mild_intermediate",
+      "prompt_text": "Show user progression from score 0-3 to score 4+ on Base chain"
+    },
+    {
+      "prompt_id": 74,
+      "used_at": "2025-10-30T14:28:45.575953",
+      "timestamp": "2025-10-30 14:28:45",
+      "category": "Bridge Activity",
+      "difficulty": "mild_intermediate",
+      "prompt_text": "Compare different bridge protocols usage on Base chain"
+    },
+    {
+      "prompt_id": 69,
+      "used_at": "2025-10-30T14:29:52.817129",
+      "timestamp": "2025-10-30 14:29:52",
+      "category": "Token Analysis",
+      "difficulty": "mild_intermediate",
+      "prompt_text": "Visualize tokens by transfer count vs transfer volume on Base"
+    },
+    {
+      "prompt_id": 98,
+      "used_at": "2025-10-30T14:42:04.160220",
+      "timestamp": "2025-10-30 14:42:04",
+      "category": "Simple Cross-Chain",
+      "difficulty": "mild_intermediate",
+      "prompt_text": "Create a chain health radar chart using key metrics like users, volume, and fees"
+    },
+    {
+      "prompt_id": 84,
+      "used_at": "2025-10-30T15:20:11.500757",
+      "timestamp": "2025-10-30 15:20:11",
+      "category": "Exchange Activity",
+      "difficulty": "mild_intermediate",
+      "prompt_text": "Compare different centralized exchange usage patterns across chains"
+    },
+    {
+      "prompt_id": 87,
+      "used_at": "2025-10-30T15:49:11.833785",
+      "timestamp": "2025-10-30 15:49:11",
+      "category": "Simple Trending Analysis",
+      "difficulty": "mild_intermediate",
+      "prompt_text": "Show weekly growth rates of the top 5 DeFi protocols by TVL"
+    },
+    {
+      "prompt_id": 73,
+      "used_at": "2025-10-30T16:02:05.032633",
+      "timestamp": "2025-10-30 16:02:05",
+      "category": "Bridge Activity",
+      "difficulty": "mild_intermediate",
+      "prompt_text": "Show the flow of assets between Ethereum, Arbitrum, and Optimism"
     }
   ],
   "last_reset": null,
-  "total_runs": 31
+  "total_runs": 38
 }
