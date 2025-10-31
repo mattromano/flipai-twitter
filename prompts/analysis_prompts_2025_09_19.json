@@ -349,11 +349,711 @@
       "difficulty": "mild_intermediate",
       "expected_charts": ["heatmap"],
       "prompt": "Show user activity patterns by chain and day of week"
+    },
+    {
+      "id": 101,
+      "category": "Basic Chain Metrics",
+      "difficulty": "easy",
+      "expected_charts": ["line"],
+      "prompt": "Show hourly transaction count on Solana for the past 7 days"
+    },
+    {
+      "id": 102,
+      "category": "Basic Chain Metrics",
+      "difficulty": "easy",
+      "expected_charts": ["bar"],
+      "prompt": "Compare average block time across Ethereum, Polygon, and Arbitrum this week"
+    },
+    {
+      "id": 103,
+      "category": "Basic Chain Metrics",
+      "difficulty": "mild_intermediate",
+      "expected_charts": ["dual-axis"],
+      "prompt": "Track gas price vs transaction count on Ethereum over the last month"
+    },
+    {
+      "id": 104,
+      "category": "Basic Chain Metrics",
+      "difficulty": "intermediate",
+      "expected_charts": ["correlation", "scatter"],
+      "prompt": "Analyze the correlation between network congestion and gas fees across different time periods"
+    },
+    {
+      "id": 105,
+      "category": "Simple DeFi Analysis",
+      "difficulty": "easy",
+      "expected_charts": ["line"],
+      "prompt": "Show Curve Finance total value locked over the past 60 days"
+    },
+    {
+      "id": 106,
+      "category": "Simple DeFi Analysis",
+      "difficulty": "mild_intermediate",
+      "expected_charts": ["stacked-area"],
+      "prompt": "Break down Uniswap V3 liquidity by fee tier (0.05%, 0.3%, 1%) over time"
+    },
+    {
+      "id": 107,
+      "category": "Simple DeFi Analysis",
+      "difficulty": "intermediate",
+      "expected_charts": ["multi-series", "line"],
+      "prompt": "Compare lending protocol utilization rates (Aave, Compound, Maker) across multiple chains"
+    },
+    {
+      "id": 108,
+      "category": "Simple DeFi Analysis",
+      "difficulty": "advanced",
+      "expected_charts": ["heatmap", "correlation"],
+      "prompt": "Analyze yield farming strategy profitability by protocol, chain, and risk level over the past quarter"
+    },
+    {
+      "id": 109,
+      "category": "Simple DeFi Analysis",
+      "difficulty": "easy",
+      "expected_charts": ["bar", "ranking"],
+      "prompt": "Rank the top 15 DEX protocols by weekly trading volume"
+    },
+    {
+      "id": 110,
+      "category": "User Behavior Basics",
+      "difficulty": "easy",
+      "expected_charts": ["line"],
+      "prompt": "Track returning users vs new users on Base chain over the past month"
+    },
+    {
+      "id": 111,
+      "category": "User Behavior Basics",
+      "difficulty": "mild_intermediate",
+      "expected_charts": ["funnel"],
+      "prompt": "Show user retention funnel: first transaction to 10+ transactions on Arbitrum"
+    },
+    {
+      "id": 112,
+      "category": "User Behavior Basics",
+      "difficulty": "intermediate",
+      "expected_charts": ["cohort", "heatmap"],
+      "prompt": "Create a cohort analysis showing user retention by month of first activity on Ethereum"
+    },
+    {
+      "id": 113,
+      "category": "User Behavior Basics",
+      "difficulty": "advanced",
+      "expected_charts": ["network", "graph"],
+      "prompt": "Visualize the network of user interactions and identify key super-connectors in DeFi protocols"
+    },
+    {
+      "id": 114,
+      "category": "User Behavior Basics",
+      "difficulty": "easy",
+      "expected_charts": ["pie"],
+      "prompt": "Show the distribution of user transaction frequency categories on Polygon"
+    },
+    {
+      "id": 115,
+      "category": "Token Analysis",
+      "difficulty": "easy",
+      "expected_charts": ["line"],
+      "prompt": "Track USDT transfer volume on Tron over the past 30 days"
+    },
+    {
+      "id": 116,
+      "category": "Token Analysis",
+      "difficulty": "mild_intermediate",
+      "expected_charts": ["bubble"],
+      "prompt": "Visualize tokens by holder count, transfer volume, and market cap on Ethereum"
+    },
+    {
+      "id": 117,
+      "category": "Token Analysis",
+      "difficulty": "intermediate",
+      "expected_charts": ["flow", "sankey"],
+      "prompt": "Track the flow of stablecoins between different DeFi protocols and exchanges"
+    },
+    {
+      "id": 118,
+      "category": "Token Analysis",
+      "difficulty": "advanced",
+      "expected_charts": ["multi-dimensional", "radar"],
+      "prompt": "Create a comprehensive token health score using metrics like liquidity depth, holder distribution, and trading activity"
+    },
+    {
+      "id": 119,
+      "category": "Token Analysis",
+      "difficulty": "expert",
+      "expected_charts": ["time-series", "anomaly"],
+      "prompt": "Detect and visualize anomalous token transfer patterns that may indicate market manipulation or wash trading"
+    },
+    {
+      "id": 120,
+      "category": "Bridge Activity",
+      "difficulty": "easy",
+      "expected_charts": ["bar"],
+      "prompt": "Show daily bridge volume to Base from all source chains this week"
+    },
+    {
+      "id": 121,
+      "category": "Bridge Activity",
+      "difficulty": "mild_intermediate",
+      "expected_charts": ["stacked-bar"],
+      "prompt": "Compare bridge volumes by asset type (ETH, stablecoins, other tokens) on Optimism"
+    },
+    {
+      "id": 122,
+      "category": "Bridge Activity",
+      "difficulty": "intermediate",
+      "expected_charts": ["network", "sankey"],
+      "prompt": "Map the complete network of bridge flows showing all major chains and bridge protocols"
+    },
+    {
+      "id": 123,
+      "category": "Bridge Activity",
+      "difficulty": "advanced",
+      "expected_charts": ["risk-matrix", "scatter"],
+      "prompt": "Analyze bridge security and reliability by comparing TVL, volume, and incident history across protocols"
+    },
+    {
+      "id": 124,
+      "category": "Bridge Activity",
+      "difficulty": "easy",
+      "expected_charts": ["line", "trend"],
+      "prompt": "Track bridge transaction count trends for Layer 2 chains over the past 3 months"
+    },
+    {
+      "id": 125,
+      "category": "NFT Market Basics",
+      "difficulty": "easy",
+      "expected_charts": ["bar"],
+      "prompt": "Show the top 20 NFT collections by floor price on Ethereum today"
+    },
+    {
+      "id": 126,
+      "category": "NFT Market Basics",
+      "difficulty": "mild_intermediate",
+      "expected_charts": ["scatter"],
+      "prompt": "Plot NFT collections by trading volume vs average sale price over the past week"
+    },
+    {
+      "id": 127,
+      "category": "NFT Market Basics",
+      "difficulty": "intermediate",
+      "expected_charts": ["trend", "line"],
+      "prompt": "Analyze the relationship between celebrity NFT drops and subsequent market activity"
+    },
+    {
+      "id": 128,
+      "category": "NFT Market Basics",
+      "difficulty": "advanced",
+      "expected_charts": ["network", "graph"],
+      "prompt": "Map the network of NFT traders showing connections between collectors and their trading patterns"
+    },
+    {
+      "id": 129,
+      "category": "NFT Market Basics",
+      "difficulty": "easy",
+      "expected_charts": ["pie"],
+      "prompt": "Show the distribution of NFT sales by marketplace (OpenSea, Blur, LooksRare) this month"
+    },
+    {
+      "id": 130,
+      "category": "Exchange Activity",
+      "difficulty": "easy",
+      "expected_charts": ["bar"],
+      "prompt": "Compare CEX deposit volumes across Binance, Coinbase, and Kraken to Ethereum yesterday"
+    },
+    {
+      "id": 131,
+      "category": "Exchange Activity",
+      "difficulty": "mild_intermediate",
+      "expected_charts": ["waterfall"],
+      "prompt": "Show net exchange flow (deposits minus withdrawals) for Bitcoin, Ethereum, and stablecoins"
+    },
+    {
+      "id": 132,
+      "category": "Exchange Activity",
+      "difficulty": "intermediate",
+      "expected_charts": ["correlation", "scatter"],
+      "prompt": "Analyze the correlation between exchange outflows and market price movements"
+    },
+    {
+      "id": 133,
+      "category": "Exchange Activity",
+      "difficulty": "advanced",
+      "expected_charts": ["heatmap", "time-series"],
+      "prompt": "Identify patterns in exchange activity that precede significant market events or volatility"
+    },
+    {
+      "id": 134,
+      "category": "Exchange Activity",
+      "difficulty": "easy",
+      "expected_charts": ["line", "multi-series"],
+      "prompt": "Track exchange inflows and outflows for Arbitrum, Optimism, and Base over the past month"
+    },
+    {
+      "id": 135,
+      "category": "Simple Trending Analysis",
+      "difficulty": "easy",
+      "expected_charts": ["bar", "trending"],
+      "prompt": "Which Layer 2 chains had the highest user growth rate this week?"
+    },
+    {
+      "id": 136,
+      "category": "Simple Trending Analysis",
+      "difficulty": "mild_intermediate",
+      "expected_charts": ["line", "growth-rate"],
+      "prompt": "Show month-over-month growth rates for DeFi TVL across all major chains"
+    },
+    {
+      "id": 137,
+      "category": "Simple Trending Analysis",
+      "difficulty": "intermediate",
+      "expected_charts": ["momentum", "bubble"],
+      "prompt": "Visualize protocol momentum by plotting current metrics against growth acceleration"
+    },
+    {
+      "id": 138,
+      "category": "Simple Trending Analysis",
+      "difficulty": "advanced",
+      "expected_charts": ["predictive", "trend"],
+      "prompt": "Use historical data to identify early indicators of protocol success or decline"
+    },
+    {
+      "id": 139,
+      "category": "Simple Trending Analysis",
+      "difficulty": "easy",
+      "expected_charts": ["ranking", "bar"],
+      "prompt": "Rank tokens by their growth in active holders over the past 7 days"
+    },
+    {
+      "id": 140,
+      "category": "Basic Governance",
+      "difficulty": "easy",
+      "expected_charts": ["bar"],
+      "prompt": "Show the number of active proposals across major DAOs this month"
+    },
+    {
+      "id": 141,
+      "category": "Basic Governance",
+      "difficulty": "mild_intermediate",
+      "expected_charts": ["timeline"],
+      "prompt": "Track proposal submission and voting timeline for Uniswap governance over the past quarter"
+    },
+    {
+      "id": 142,
+      "category": "Basic Governance",
+      "difficulty": "intermediate",
+      "expected_charts": ["network", "graph"],
+      "prompt": "Map the network of governance participants showing voting coalitions and influence patterns"
+    },
+    {
+      "id": 143,
+      "category": "Basic Governance",
+      "difficulty": "advanced",
+      "expected_charts": ["sentiment", "text-analysis"],
+      "prompt": "Analyze governance proposal sentiment and predict success likelihood based on discussion patterns"
+    },
+    {
+      "id": 144,
+      "category": "Basic Governance",
+      "difficulty": "easy",
+      "expected_charts": ["pie"],
+      "prompt": "Show the distribution of voting power across major DAO token holders"
+    },
+    {
+      "id": 145,
+      "category": "Simple Cross-Chain",
+      "difficulty": "easy",
+      "expected_charts": ["comparison", "bar"],
+      "prompt": "Compare daily active users for the same protocol deployed on Ethereum, Arbitrum, and Polygon"
+    },
+    {
+      "id": 146,
+      "category": "Simple Cross-Chain",
+      "difficulty": "mild_intermediate",
+      "expected_charts": ["multi-bar"],
+      "prompt": "Show TVL comparison for Aave across all chains where it's deployed"
+    },
+    {
+      "id": 147,
+      "category": "Simple Cross-Chain",
+      "difficulty": "intermediate",
+      "expected_charts": ["radar", "multi-dimensional"],
+      "prompt": "Create a multi-chain health comparison using metrics like users, volume, fees, and decentralization"
+    },
+    {
+      "id": 148,
+      "category": "Simple Cross-Chain",
+      "difficulty": "advanced",
+      "expected_charts": ["network", "topology"],
+      "prompt": "Visualize the complete ecosystem topology showing chains, bridges, and cross-chain protocols"
+    },
+    {
+      "id": 149,
+      "category": "Simple Cross-Chain",
+      "difficulty": "expert",
+      "expected_charts": ["correlation-matrix", "heatmap"],
+      "prompt": "Analyze cross-chain correlation patterns to identify systemic risks and arbitrage opportunities"
+    },
+    {
+      "id": 150,
+      "category": "Advanced DeFi Analysis",
+      "difficulty": "intermediate",
+      "expected_charts": ["yield-curve", "multi-series"],
+      "prompt": "Compare yield curves across different DeFi lending protocols over time"
+    },
+    {
+      "id": 151,
+      "category": "Advanced DeFi Analysis",
+      "difficulty": "advanced",
+      "expected_charts": ["risk-dashboard", "multi-panel"],
+      "prompt": "Create a comprehensive DeFi risk dashboard showing liquidity, smart contract, and market risks"
+    },
+    {
+      "id": 152,
+      "category": "Advanced DeFi Analysis",
+      "difficulty": "intermediate",
+      "expected_charts": ["impermanent-loss", "scatter"],
+      "prompt": "Calculate and visualize impermanent loss scenarios for Uniswap V3 liquidity providers"
+    },
+    {
+      "id": 153,
+      "category": "Advanced DeFi Analysis",
+      "difficulty": "advanced",
+      "expected_charts": ["strategy-backtest", "line"],
+      "prompt": "Backtest yield farming strategies comparing single-asset staking vs LP positions vs lending"
+    },
+    {
+      "id": 154,
+      "category": "Advanced DeFi Analysis",
+      "difficulty": "expert",
+      "expected_charts": ["monte-carlo", "distribution"],
+      "prompt": "Simulate DeFi protocol TVL scenarios using Monte Carlo analysis to assess sustainability"
+    },
+    {
+      "id": 155,
+      "category": "MEV Analysis",
+      "difficulty": "intermediate",
+      "expected_charts": ["bar"],
+      "prompt": "Show the distribution of MEV extraction value by type (arbitrage, liquidation, front-running)"
+    },
+    {
+      "id": 156,
+      "category": "MEV Analysis",
+      "difficulty": "advanced",
+      "expected_charts": ["network", "graph"],
+      "prompt": "Map the network of MEV bots and their transaction patterns to identify dominant players"
+    },
+    {
+      "id": 157,
+      "category": "MEV Analysis",
+      "difficulty": "intermediate",
+      "expected_charts": ["line", "trend"],
+      "prompt": "Track MEV revenue trends over time and identify periods of high activity"
+    },
+    {
+      "id": 158,
+      "category": "MEV Analysis",
+      "difficulty": "expert",
+      "expected_charts": ["anomaly-detection", "time-series"],
+      "prompt": "Detect sophisticated MEV attacks and sandwich attacks by analyzing transaction ordering patterns"
+    },
+    {
+      "id": 159,
+      "category": "Liquid Staking",
+      "difficulty": "easy",
+      "expected_charts": ["line"],
+      "prompt": "Track total liquid staking token supply (stETH, rETH, cbETH) over the past 6 months"
+    },
+    {
+      "id": 160,
+      "category": "Liquid Staking",
+      "difficulty": "mild_intermediate",
+      "expected_charts": ["stacked-area"],
+      "prompt": "Show market share breakdown of different liquid staking protocols on Ethereum"
+    },
+    {
+      "id": 161,
+      "category": "Liquid Staking",
+      "difficulty": "intermediate",
+      "expected_charts": ["premium-discount", "line"],
+      "prompt": "Track the premium/discount of liquid staking tokens relative to ETH over time"
+    },
+    {
+      "id": 162,
+      "category": "Liquid Staking",
+      "difficulty": "advanced",
+      "expected_charts": ["risk-analysis", "multi-panel"],
+      "prompt": "Analyze liquid staking protocol risks including validator concentration and slashing history"
+    },
+    {
+      "id": 163,
+      "category": "Layer 2 Analytics",
+      "difficulty": "easy",
+      "expected_charts": ["bar", "comparison"],
+      "prompt": "Compare transaction costs across Arbitrum, Optimism, Base, and Polygon this week"
+    },
+    {
+      "id": 164,
+      "category": "Layer 2 Analytics",
+      "difficulty": "mild_intermediate",
+      "expected_charts": ["dual-axis"],
+      "prompt": "Show Layer 2 adoption: transaction count vs unique users over time"
+    },
+    {
+      "id": 165,
+      "category": "Layer 2 Analytics",
+      "difficulty": "intermediate",
+      "expected_charts": ["market-share", "pie"],
+      "prompt": "Show the market share of different Layer 2 solutions by TVL and user count"
+    },
+    {
+      "id": 166,
+      "category": "Layer 2 Analytics",
+      "difficulty": "advanced",
+      "expected_charts": ["efficiency-metrics", "radar"],
+      "prompt": "Compare Layer 2 efficiency metrics: finality time, throughput, cost, and decentralization"
+    },
+    {
+      "id": 167,
+      "category": "Protocol Risk Analysis",
+      "difficulty": "intermediate",
+      "expected_charts": ["risk-score", "bar"],
+      "prompt": "Calculate and rank DeFi protocols by composite risk score (smart contract, economic, governance)"
+    },
+    {
+      "id": 168,
+      "category": "Protocol Risk Analysis",
+      "difficulty": "advanced",
+      "expected_charts": ["stress-test", "scenario"],
+      "prompt": "Stress test DeFi protocols by simulating extreme market conditions and withdrawal scenarios"
+    },
+    {
+      "id": 169,
+      "category": "Protocol Risk Analysis",
+      "difficulty": "expert",
+      "expected_charts": ["cascade-failure", "network"],
+      "prompt": "Model potential cascade failures in DeFi by analyzing inter-protocol dependencies and correlations"
+    },
+    {
+      "id": 170,
+      "category": "Market Structure Analysis",
+      "difficulty": "intermediate",
+      "expected_charts": ["orderbook-depth", "heatmap"],
+      "prompt": "Analyze DEX orderbook depth and liquidity concentration across different price levels"
+    },
+    {
+      "id": 171,
+      "category": "Market Structure Analysis",
+      "difficulty": "advanced",
+      "expected_charts": ["market-impact", "scatter"],
+      "prompt": "Calculate and visualize market impact curves for different trade sizes across DEX protocols"
+    },
+    {
+      "id": 172,
+      "category": "Market Structure Analysis",
+      "difficulty": "expert",
+      "expected_charts": ["microstructure", "time-series"],
+      "prompt": "Analyze DEX microstructure by examining spread dynamics, price discovery, and execution quality"
+    },
+    {
+      "id": 173,
+      "category": "Smart Contract Analytics",
+      "difficulty": "intermediate",
+      "expected_charts": ["gas-usage", "bar"],
+      "prompt": "Compare gas efficiency of different DeFi protocols for similar operations"
+    },
+    {
+      "id": 174,
+      "category": "Smart Contract Analytics",
+      "difficulty": "advanced",
+      "expected_charts": ["complexity-metrics", "scatter"],
+      "prompt": "Analyze smart contract complexity vs security incidents to identify risk patterns"
+    },
+    {
+      "id": 175,
+      "category": "Smart Contract Analytics",
+      "difficulty": "expert",
+      "expected_charts": ["vulnerability-trends", "line"],
+      "prompt": "Track smart contract vulnerability trends and correlate with protocol adoption metrics"
+    },
+    {
+      "id": 176,
+      "category": "Tokenomics Analysis",
+      "difficulty": "intermediate",
+      "expected_charts": ["supply-distribution", "pie"],
+      "prompt": "Analyze token supply distribution and identify concentration risks for major protocols"
+    },
+    {
+      "id": 177,
+      "category": "Tokenomics Analysis",
+      "difficulty": "advanced",
+      "expected_charts": ["inflation-schedule", "line"],
+      "prompt": "Model token emission schedules and project future supply and price impacts"
+    },
+    {
+      "id": 178,
+      "category": "Tokenomics Analysis",
+      "difficulty": "expert",
+      "expected_charts": ["economic-model", "multi-panel"],
+      "prompt": "Create a comprehensive tokenomics model showing emission, burn, and value accrual mechanisms"
+    },
+    {
+      "id": 179,
+      "category": "Whale Activity Tracking",
+      "difficulty": "mild_intermediate",
+      "expected_charts": ["large-transactions", "bar"],
+      "prompt": "Track large transactions (whale movements) above $1M across major chains this week"
+    },
+    {
+      "id": 180,
+      "category": "Whale Activity Tracking",
+      "difficulty": "intermediate",
+      "expected_charts": ["whale-network", "graph"],
+      "prompt": "Map the network of whale wallets and their transaction relationships"
+    },
+    {
+      "id": 181,
+      "category": "Whale Activity Tracking",
+      "difficulty": "advanced",
+      "expected_charts": ["movement-patterns", "timeline"],
+      "prompt": "Identify patterns in whale movements that precede significant market movements"
+    },
+    {
+      "id": 182,
+      "category": "DEX Aggregator Analysis",
+      "difficulty": "mild_intermediate",
+      "expected_charts": ["volume-share", "pie"],
+      "prompt": "Show market share of DEX aggregators (1inch, Matcha, Paraswap) by trading volume"
+    },
+    {
+      "id": 183,
+      "category": "DEX Aggregator Analysis",
+      "difficulty": "intermediate",
+      "expected_charts": ["price-improvement", "bar"],
+      "prompt": "Compare price improvement delivered by different DEX aggregators vs direct DEX trades"
+    },
+    {
+      "id": 184,
+      "category": "DEX Aggregator Analysis",
+      "difficulty": "advanced",
+      "expected_charts": ["routing-optimization", "heatmap"],
+      "prompt": "Analyze optimal routing paths used by aggregators across different liquidity sources"
+    },
+    {
+      "id": 185,
+      "category": "Stablecoin Analysis",
+      "difficulty": "easy",
+      "expected_charts": ["supply-trends", "line"],
+      "prompt": "Track total stablecoin supply (USDT, USDC, DAI) across all chains over the past year"
+    },
+    {
+      "id": 186,
+      "category": "Stablecoin Analysis",
+      "difficulty": "mild_intermediate",
+      "expected_charts": ["peg-deviation", "line"],
+      "prompt": "Show the deviation from $1 peg for major stablecoins over time"
+    },
+    {
+      "id": 187,
+      "category": "Stablecoin Analysis",
+      "difficulty": "intermediate",
+      "expected_charts": ["reserve-composition", "stacked-bar"],
+      "prompt": "Analyze the reserve composition and backing mechanisms of different stablecoin types"
+    },
+    {
+      "id": 188,
+      "category": "Stablecoin Analysis",
+      "difficulty": "advanced",
+      "expected_charts": ["depeg-risk", "multi-metric"],
+      "prompt": "Assess stablecoin depeg risk using metrics like volume, liquidity depth, and market confidence"
+    },
+    {
+      "id": 189,
+      "category": "Validator Network Analysis",
+      "difficulty": "intermediate",
+      "expected_charts": ["validator-distribution", "pie"],
+      "prompt": "Show the distribution of staking rewards across validator pools on Ethereum"
+    },
+    {
+      "id": 190,
+      "category": "Validator Network Analysis",
+      "difficulty": "advanced",
+      "expected_charts": ["centralization-risk", "scatter"],
+      "prompt": "Analyze validator network centralization risks by examining node distribution and control"
+    },
+    {
+      "id": 191,
+      "category": "Flash Loan Analysis",
+      "difficulty": "intermediate",
+      "expected_charts": ["flash-loan-volume", "bar"],
+      "prompt": "Track flash loan volume and frequency across Aave, dYdX, and Uniswap"
+    },
+    {
+      "id": 192,
+      "category": "Flash Loan Analysis",
+      "difficulty": "advanced",
+      "expected_charts": ["arbitrage-strategies", "network"],
+      "prompt": "Identify and visualize flash loan arbitrage strategies and their profitability"
+    },
+    {
+      "id": 193,
+      "category": "Options & Derivatives",
+      "difficulty": "intermediate",
+      "expected_charts": ["options-volume", "line"],
+      "prompt": "Track DeFi options trading volume (Ribbon, Dopex, Lyra) over the past quarter"
+    },
+    {
+      "id": 194,
+      "category": "Options & Derivatives",
+      "difficulty": "advanced",
+      "expected_charts": ["greeks-analysis", "multi-panel"],
+      "prompt": "Analyze options Greeks (delta, gamma, theta, vega) for major DeFi options protocols"
+    },
+    {
+      "id": 195,
+      "category": "Lending Protocol Deep Dive",
+      "difficulty": "intermediate",
+      "expected_charts": ["borrow-utilization", "heatmap"],
+      "prompt": "Show borrowing utilization rates by asset across different lending protocols"
+    },
+    {
+      "id": 196,
+      "category": "Lending Protocol Deep Dive",
+      "difficulty": "advanced",
+      "expected_charts": ["liquidation-analysis", "scatter"],
+      "prompt": "Analyze liquidation patterns and identify optimal collateral ratios for different assets"
+    },
+    {
+      "id": 197,
+      "category": "DAU/MAU Ratios",
+      "difficulty": "mild_intermediate",
+      "expected_charts": ["retention-metrics", "line"],
+      "prompt": "Track DAU/MAU ratios for major DeFi protocols to measure user engagement"
+    },
+    {
+      "id": 198,
+      "category": "DAU/MAU Ratios",
+      "difficulty": "intermediate",
+      "expected_charts": ["engagement-score", "radar"],
+      "prompt": "Create an engagement score comparing DAU/MAU, transaction frequency, and protocol diversity"
+    },
+    {
+      "id": 199,
+      "category": "Cross-Protocol Interactions",
+      "difficulty": "advanced",
+      "expected_charts": ["interaction-network", "graph"],
+      "prompt": "Map how users interact across multiple DeFi protocols to identify common user journeys"
+    },
+    {
+      "id": 200,
+      "category": "Cross-Protocol Interactions",
+      "difficulty": "expert",
+      "expected_charts": ["ecosystem-map", "topology"],
+      "prompt": "Create a comprehensive map of the DeFi ecosystem showing protocols, connections, and value flows"
     }
   ],
   "metadata": {
-    "total_prompts": 50,
-    "id_range": "51-100",
+    "total_prompts": 150,
+    "id_range": "51-200",
     "categories": [
       "Basic Chain Metrics",
       "Simple DeFi Analysis", 
@@ -364,15 +1064,46 @@
       "Exchange Activity",
       "Simple Trending Analysis",
       "Basic Governance",
-      "Simple Cross-Chain"
+      "Simple Cross-Chain",
+      "Advanced DeFi Analysis",
+      "MEV Analysis",
+      "Liquid Staking",
+      "Layer 2 Analytics",
+      "Protocol Risk Analysis",
+      "Market Structure Analysis",
+      "Smart Contract Analytics",
+      "Tokenomics Analysis",
+      "Whale Activity Tracking",
+      "DEX Aggregator Analysis",
+      "Stablecoin Analysis",
+      "Validator Network Analysis",
+      "Flash Loan Analysis",
+      "Options & Derivatives",
+      "Lending Protocol Deep Dive",
+      "DAU/MAU Ratios",
+      "Cross-Protocol Interactions"
     ],
-    "difficulty_levels": ["easy", "mild_intermediate"],
+    "difficulty_levels": ["easy", "mild_intermediate", "intermediate", "advanced", "expert"],
     "chart_types": [
       "line", "bar", "pie", "distribution", "comparison", "ranking", "trend",
       "stacked-bar", "dual-axis", "funnel", "scatter", "stacked-area", "bubble",
       "flow", "sankey", "heatmap", "waterfall", "trending", "growth-rate",
-      "growth", "timeline", "multi-bar", "radar", "multi-series"
+      "growth", "timeline", "multi-bar", "radar", "multi-series", "correlation",
+      "cohort", "network", "graph", "anomaly", "time-series", "multi-dimensional",
+      "risk-matrix", "impermanent-loss", "strategy-backtest", "monte-carlo",
+      "anomaly-detection", "premium-discount", "risk-analysis", "multi-panel",
+      "market-share", "efficiency-metrics", "risk-score", "stress-test", "scenario",
+      "cascade-failure", "orderbook-depth", "market-impact", "microstructure",
+      "gas-usage", "complexity-metrics", "vulnerability-trends", "supply-distribution",
+      "inflation-schedule", "economic-model", "large-transactions", "whale-network",
+      "movement-patterns", "volume-share", "price-improvement", "routing-optimization",
+      "supply-trends", "peg-deviation", "reserve-composition", "depeg-risk",
+      "validator-distribution", "centralization-risk", "flash-loan-volume",
+      "arbitrage-strategies", "options-volume", "greeks-analysis", "borrow-utilization",
+      "liquidation-analysis", "retention-metrics", "engagement-score", "interaction-network",
+      "ecosystem-map", "topology", "correlation-matrix", "yield-curve", "risk-dashboard",
+      "sentiment", "text-analysis", "momentum", "predictive"
     ],
-    "complexity_focus": "Easy to understand queries that produce clear, actionable visualizations suitable for beginners and intermediate users learning blockchain analytics"
+    "complexity_focus": "Comprehensive range of queries from basic chain metrics to expert-level analysis covering DeFi protocols, MEV, liquid staking, risk analysis, market structure, and cross-protocol interactions. Suitable for users at all levels from beginners to advanced researchers."
   }
 }
