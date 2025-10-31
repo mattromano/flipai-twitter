@@ -61,6 +61,42 @@ class TwitterPoster:
             self.logger.log_error(f"Twitter client setup failed: {e}")
             return False
     
+    def _find_artifact_screenshot(self, analysis_data: Dict[str, Any]) -> Optional[str]:
+        """Find the artifact screenshot from analysis data using multiple fallback methods."""
+        artifacts = analysis_data.get("data", {}).get("artifacts", [])
+        
+        # Method 1: Look in artifacts list
+        if artifacts:
+            for artifact in artifacts:
+                if artifact.get("type") == "analysis_artifact" and artifact.get("screenshot"):
+                    screenshot_path = artifact["screenshot"]
+                    if screenshot_path and screenshot_path.strip() and os.path.exists(screenshot_path):
+                        self.logger.log_info(f"📸 Found artifact screenshot in artifacts list: {screenshot_path}")
+                        return screenshot_path
+        
+        # Method 2: Fallback - check artifact_screenshot field directly
+        artifact_screenshot = analysis_data.get("data", {}).get("artifact_screenshot", "")
+        if artifact_screenshot and artifact_screenshot.strip() and os.path.exists(artifact_screenshot):
+            self.logger.log_info(f"📸 Found artifact screenshot in artifact_screenshot field: {artifact_screenshot}")
+            return artifact_screenshot
+        
+        # Method 3: Fallback - check screenshots list for artifact screenshots
+        screenshots = analysis_data.get("data", {}).get("screenshots", [])
+        for screenshot in screenshots:
+            if screenshot and isinstance(screenshot, str) and "artifact" in screenshot.lower() and os.path.exists(screenshot):
+                self.logger.log_info(f"📸 Found artifact screenshot in screenshots list: {screenshot}")
+                return screenshot
+        
+        # Method 4: Last resort - use first screenshot if available
+        if screenshots:
+            for screenshot in screenshots:
+                if screenshot and isinstance(screenshot, str) and os.path.exists(screenshot):
+                    self.logger.log_info(f"📸 Using first available screenshot as fallback: {screenshot}")
+                    return screenshot
+        
+        self.logger.log_warning("⚠️ No artifact screenshot found")
+        return None
+    
     def post_tweet(self, text: str, image_path: Optional[str] = None) -> Dict[str, Any]:
         """Post a tweet with optional image."""
         try:
@@ -130,13 +166,8 @@ class TwitterPoster:
                 # For bullet points, try to preserve as many complete bullets as possible
                 tweet_content = self._truncate_with_bullet_points(tweet_content)
             
-            # Find the artifact screenshot
-            image_path = None
-            if artifacts:
-                for artifact in artifacts:
-                    if artifact.get("type") == "analysis_artifact" and artifact.get("screenshot"):
-                        image_path = artifact["screenshot"]
-                        break
+            # Find the artifact screenshot using helper method
+            image_path = self._find_artifact_screenshot(analysis_data)
             
             # In test mode, just return the preview without posting
             if test_mode:
@@ -187,13 +218,8 @@ class TwitterPoster:
                 # For bullet points, try to preserve as many complete bullets as possible
                 tweet_content = self._truncate_with_bullet_points(tweet_content)
             
-            # Find the artifact screenshot
-            image_path = None
-            if artifacts:
-                for artifact in artifacts:
-                    if artifact.get("type") == "analysis_artifact" and artifact.get("screenshot"):
-                        image_path = artifact["screenshot"]
-                        break
+            # Find the artifact screenshot using helper method
+            image_path = self._find_artifact_screenshot(analysis_data)
             
             return {
                 "success": True,

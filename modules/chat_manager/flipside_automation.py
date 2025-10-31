@@ -855,27 +855,36 @@ This is the prompt I want you to do the analysis on:
             extraction_result = extractor.extract_from_chat_url(self.driver.current_url)
             
             if extraction_result["success"]:
+                # Add artifact screenshot if available
+                artifact_screenshot_path = extraction_result.get("artifact_screenshot", "")
+                
                 results = {
                     "timestamp": datetime.now().isoformat(),
                     "chat_url": self.driver.current_url,
                     "response_text": extraction_result["response_text"],
                     "twitter_text": extraction_result["twitter_text"],
                     "artifacts": [],
-                    "screenshots": extraction_result["screenshots"],
+                    "screenshots": extraction_result.get("screenshots", []),
+                    "artifact_screenshot": artifact_screenshot_path,  # Preserve for fallback
                     "response_metadata": {}
                 }
                 
-                # Add artifact screenshot if available
-                if extraction_result["artifact_screenshot"]:
+                # Add artifact screenshot to artifacts list if available
+                if artifact_screenshot_path and artifact_screenshot_path.strip() and os.path.exists(artifact_screenshot_path):
                     artifact_info = {
                         "type": "analysis_artifact",
                         "index": 1,
-                        "screenshot": extraction_result["artifact_screenshot"],
+                        "screenshot": artifact_screenshot_path,
                         "selector": "artifact_page",
                         "tag_name": "page"
                     }
                     results["artifacts"].append(artifact_info)
-                    results["screenshots"].append(extraction_result["artifact_screenshot"])
+                    if artifact_screenshot_path not in results["screenshots"]:
+                        results["screenshots"].append(artifact_screenshot_path)
+                    self.logger.log_info(f"✅ Added artifact screenshot to results: {artifact_screenshot_path}")
+                    self.logger.log_info(f"📊 Results now contain {len(results['artifacts'])} artifacts")
+                else:
+                    self.logger.log_warning(f"⚠️ Artifact screenshot not found or invalid: {artifact_screenshot_path}")
                 
                 self.logger.log_success(f"✅ Data extracted using specialized extractor: {len(results['twitter_text'])} chars Twitter, {len(results['response_text'])} chars response")
                 return results
