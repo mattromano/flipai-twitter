@@ -1049,11 +1049,221 @@
       "difficulty": "expert",
       "expected_charts": ["ecosystem-map", "topology"],
       "prompt": "Create a comprehensive map of the DeFi ecosystem showing protocols, connections, and value flows"
+    },
+    {
+      "id": 201,
+      "category": "Yield Farming Strategy",
+      "difficulty": "intermediate",
+      "expected_charts": ["yield-comparison", "multi-bar"],
+      "prompt": "Compare risk-adjusted yields across different yield farming strategies on major DeFi protocols"
+    },
+    {
+      "id": 202,
+      "category": "Yield Farming Strategy",
+      "difficulty": "advanced",
+      "expected_charts": ["impermanent-loss", "scatter"],
+      "prompt": "Analyze impermanent loss vs yield rewards for LP positions across different volatility pairs"
+    },
+    {
+      "id": 203,
+      "category": "Yield Farming Strategy",
+      "difficulty": "expert",
+      "expected_charts": ["strategy-backtest", "time-series"],
+      "prompt": "Backtest optimal yield farming strategies by simulating compound returns across multiple protocols over 6 months"
+    },
+    {
+      "id": 204,
+      "category": "Protocol Security Metrics",
+      "difficulty": "intermediate",
+      "expected_charts": ["security-score", "radar"],
+      "prompt": "Create a security scorecard for DeFi protocols based on audit history, bug bounty programs, and incident records"
+    },
+    {
+      "id": 205,
+      "category": "Protocol Security Metrics",
+      "difficulty": "advanced",
+      "expected_charts": ["vulnerability-trends", "correlation"],
+      "prompt": "Correlate protocol security metrics with TVL growth to identify if security concerns impact adoption"
+    },
+    {
+      "id": 206,
+      "category": "Protocol Security Metrics",
+      "difficulty": "expert",
+      "expected_charts": ["risk-dashboard", "multi-panel"],
+      "prompt": "Build a comprehensive security risk dashboard aggregating on-chain metrics, audit scores, and governance health"
+    },
+    {
+      "id": 207,
+      "category": "Cross-Chain Arbitrage",
+      "difficulty": "intermediate",
+      "expected_charts": ["arbitrage-opportunities", "heatmap"],
+      "prompt": "Identify cross-chain arbitrage opportunities by comparing token prices across bridges and DEXs"
+    },
+    {
+      "id": 208,
+      "category": "Cross-Chain Arbitrage",
+      "difficulty": "advanced",
+      "expected_charts": ["profitability-analysis", "scatter"],
+      "prompt": "Calculate profitability of cross-chain arbitrage after accounting for gas fees, bridge costs, and slippage"
+    },
+    {
+      "id": 209,
+      "category": "Liquid Staking Derivatives",
+      "difficulty": "intermediate",
+      "expected_charts": ["lsd-market-share", "pie"],
+      "prompt": "Show market share of liquid staking derivatives (Lido, Rocket Pool, Frax) by TVL and staking volume"
+    },
+    {
+      "id": 210,
+      "category": "Liquid Staking Derivatives",
+      "difficulty": "advanced",
+      "expected_charts": ["premium-discount", "line"],
+      "prompt": "Track premium/discount dynamics of stETH, rETH, and frxETH relative to underlying ETH value"
+    },
+    {
+      "id": 211,
+      "category": "Liquid Staking Derivatives",
+      "difficulty": "expert",
+      "expected_charts": ["yield-curve", "multi-series"],
+      "prompt": "Model yield curves for different LSD tokens considering staking rewards, protocol fees, and market demand"
+    },
+    {
+      "id": 212,
+      "category": "Governance & Voting Patterns",
+      "difficulty": "intermediate",
+      "expected_charts": ["voting-participation", "bar"],
+      "prompt": "Analyze governance voting participation rates across major DAOs and identify engagement trends"
+    },
+    {
+      "id": 213,
+      "category": "Governance & Voting Patterns",
+      "difficulty": "advanced",
+      "expected_charts": ["voting-power-concentration", "scatter"],
+      "prompt": "Examine voting power concentration and identify potential governance capture risks in DAO structures"
+    },
+    {
+      "id": 214,
+      "category": "MEV Extraction Patterns",
+      "difficulty": "intermediate",
+      "expected_charts": ["mev-revenue", "stacked-area"],
+      "prompt": "Track MEV extraction revenue by type (arbitrage, liquidation, front-running) across different chains"
+    },
+    {
+      "id": 215,
+      "category": "MEV Extraction Patterns",
+      "difficulty": "advanced",
+      "expected_charts": ["mev-actor-network", "graph"],
+      "prompt": "Map the network of MEV extractors and their transaction patterns to identify dominant actors"
+    },
+    {
+      "id": 216,
+      "category": "MEV Extraction Patterns",
+      "difficulty": "expert",
+      "expected_charts": ["mev-impact-analysis", "correlation-matrix"],
+      "prompt": "Quantify MEV impact on user experience by analyzing price slippage, failed transactions, and front-running incidents"
+    },
+    {
+      "id": 217,
+      "category": "Risk-Adjusted Returns",
+      "difficulty": "intermediate",
+      "expected_charts": ["sharpe-ratio", "bar"],
+      "prompt": "Calculate and compare Sharpe ratios for different DeFi yield strategies to identify optimal risk-return profiles"
+    },
+    {
+      "id": 218,
+      "category": "Risk-Adjusted Returns",
+      "difficulty": "advanced",
+      "expected_charts": ["monte-carlo", "distribution"],
+      "prompt": "Run Monte Carlo simulations to project potential returns and risks for multi-protocol DeFi strategies"
+    },
+    {
+      "id": 219,
+      "category": "Market Sentiment Analysis",
+      "difficulty": "intermediate",
+      "expected_charts": ["sentiment-score", "line"],
+      "prompt": "Analyze on-chain sentiment indicators by tracking token flows, whale movements, and trading patterns"
+    },
+    {
+      "id": 220,
+      "category": "Market Sentiment Analysis",
+      "difficulty": "advanced",
+      "expected_charts": ["sentiment-momentum", "multi-axis"],
+      "prompt": "Correlate on-chain metrics with social sentiment to predict market movements and protocol adoption"
+    },
+    {
+      "id": 221,
+      "category": "Protocol Revenue Models",
+      "difficulty": "intermediate",
+      "expected_charts": ["revenue-breakdown", "stacked-bar"],
+      "prompt": "Break down revenue sources (trading fees, borrowing interest, protocol fees) for top DeFi protocols"
+    },
+    {
+      "id": 222,
+      "category": "Protocol Revenue Models",
+      "difficulty": "advanced",
+      "expected_charts": ["revenue-sustainability", "scatter"],
+      "prompt": "Assess long-term revenue sustainability by analyzing fee structures, token emissions, and protocol economics"
+    },
+    {
+      "id": 223,
+      "category": "Smart Contract Efficiency",
+      "difficulty": "intermediate",
+      "expected_charts": ["gas-optimization", "comparison"],
+      "prompt": "Compare gas efficiency of similar operations across different DEX protocols to identify optimization opportunities"
+    },
+    {
+      "id": 224,
+      "category": "Smart Contract Efficiency",
+      "difficulty": "advanced",
+      "expected_charts": ["complexity-efficiency", "heatmap"],
+      "prompt": "Analyze the trade-off between smart contract complexity and gas efficiency across DeFi protocols"
+    },
+    {
+      "id": 225,
+      "category": "Liquidity Provider Analysis",
+      "difficulty": "intermediate",
+      "expected_charts": ["lp-returns", "multi-series"],
+      "prompt": "Track LP returns across different pools factoring in fees earned, impermanent loss, and token rewards"
+    },
+    {
+      "id": 226,
+      "category": "Liquidity Provider Analysis",
+      "difficulty": "advanced",
+      "expected_charts": ["lp-optimal-allocation", "radar"],
+      "prompt": "Identify optimal LP allocation strategies by analyzing pool depth, volume, and volatility characteristics"
+    },
+    {
+      "id": 227,
+      "category": "Bridge Security Analysis",
+      "difficulty": "intermediate",
+      "expected_charts": ["bridge-volume-risk", "bar"],
+      "prompt": "Compare bridge security metrics with transaction volume to assess risk concentration in cross-chain infrastructure"
+    },
+    {
+      "id": 228,
+      "category": "Bridge Security Analysis",
+      "difficulty": "advanced",
+      "expected_charts": ["bridge-failure-scenarios", "scenario"],
+      "prompt": "Model potential bridge failure scenarios and their systemic impact on cross-chain DeFi activity"
+    },
+    {
+      "id": 229,
+      "category": "DeFi Protocol Maturity",
+      "difficulty": "advanced",
+      "expected_charts": ["maturity-scorecard", "radar"],
+      "prompt": "Create a maturity scorecard evaluating protocols across security, adoption, revenue, and governance dimensions"
+    },
+    {
+      "id": 230,
+      "category": "DeFi Protocol Maturity",
+      "difficulty": "expert",
+      "expected_charts": ["ecosystem-health", "multi-panel"],
+      "prompt": "Develop a comprehensive DeFi ecosystem health index combining protocol metrics, user growth, and market stability"
     }
   ],
   "metadata": {
-    "total_prompts": 150,
-    "id_range": "51-200",
+    "total_prompts": 180,
+    "id_range": "51-230",
     "categories": [
       "Basic Chain Metrics",
       "Simple DeFi Analysis", 
@@ -1081,7 +1291,20 @@
       "Options & Derivatives",
       "Lending Protocol Deep Dive",
       "DAU/MAU Ratios",
-      "Cross-Protocol Interactions"
+      "Cross-Protocol Interactions",
+      "Yield Farming Strategy",
+      "Protocol Security Metrics",
+      "Cross-Chain Arbitrage",
+      "Liquid Staking Derivatives",
+      "Governance & Voting Patterns",
+      "MEV Extraction Patterns",
+      "Risk-Adjusted Returns",
+      "Market Sentiment Analysis",
+      "Protocol Revenue Models",
+      "Smart Contract Efficiency",
+      "Liquidity Provider Analysis",
+      "Bridge Security Analysis",
+      "DeFi Protocol Maturity"
     ],
     "difficulty_levels": ["easy", "mild_intermediate", "intermediate", "advanced", "expert"],
     "chart_types": [
@@ -1100,9 +1323,16 @@
       "supply-trends", "peg-deviation", "reserve-composition", "depeg-risk",
       "validator-distribution", "centralization-risk", "flash-loan-volume",
       "arbitrage-strategies", "options-volume", "greeks-analysis", "borrow-utilization",
-      "liquidation-analysis", "retention-metrics", "engagement-score", "interaction-network",
+      "liquidation-analysis",       "retention-metrics", "engagement-score", "interaction-network",
       "ecosystem-map", "topology", "correlation-matrix", "yield-curve", "risk-dashboard",
-      "sentiment", "text-analysis", "momentum", "predictive"
+      "sentiment", "text-analysis", "momentum", "predictive", "yield-comparison",
+      "yield-farming", "security-scorecard", "security-score", "arbitrage-opportunities",
+      "profitability-analysis", "lsd-market-share", "premium-discount", "voting-participation",
+      "voting-power-concentration", "mev-revenue", "mev-actor-network", "mev-impact-analysis",
+      "sharpe-ratio", "monte-carlo", "sentiment-score", "sentiment-momentum",
+      "revenue-breakdown", "revenue-sustainability", "gas-optimization", "complexity-efficiency",
+      "lp-returns", "lp-optimal-allocation", "bridge-volume-risk", "bridge-failure-scenarios",
+      "maturity-scorecard", "ecosystem-health"
     ],
     "complexity_focus": "Comprehensive range of queries from basic chain metrics to expert-level analysis covering DeFi protocols, MEV, liquid staking, risk analysis, market structure, and cross-protocol interactions. Suitable for users at all levels from beginners to advanced researchers."
   }
