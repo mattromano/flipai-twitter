@@ -59,7 +59,7 @@ jobs:
     - name: Set up Chrome for undetected-chromedriver
       uses: browser-actions/setup-chrome@v1
       with:
-        chrome-version: 'latest'
+        chrome-version: '142'
       
     - name: Create cookies file
       run: |
