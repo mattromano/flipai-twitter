@@ -499,14 +499,18 @@ class ChatDataExtractor:
             except Exception as e:
                 self.logger.log_warning(f"⚠️ Could not set up clipboard interception: {e}")
             
+            # Initialize variables
+            artifact_url = None
+            copy_link_button = None
+            
             # Step 2: Look for and click the Publish button (this will copy link to clipboard automatically)
             publish_button = self._find_publish_button()
             if publish_button:
                 self.logger.log_info("📤 Clicking Publish button (will copy link to clipboard)")
                 self.driver.execute_script("arguments[0].click();", publish_button)
-                time.sleep(2)  # Wait for publish to complete and button to transform
+                time.sleep(3)  # Wait for publish to complete and button to transform
                 
-                # Try to read the intercepted URL
+                # Try to read the intercepted URL first
                 if clipboard_intercepted:
                     try:
                         intercepted_url = self.driver.execute_script("return window.__intercepted_clipboard_url")
@@ -522,16 +526,28 @@ class ChatDataExtractor:
                             return self._continue_artifact_screenshot()
                     except Exception as e:
                         self.logger.log_warning(f"⚠️ Could not read intercepted clipboard: {e}")
+                
+                # Wait for Copy link button to appear (up to 10 seconds)
+                self.logger.log_info("⏳ Waiting for Copy link button to appear after publish...")
+                for attempt in range(10):
+                    copy_link_button = self._find_copy_link_button()
+                    if copy_link_button:
+                        self.logger.log_success(f"✅ Copy link button appeared after {attempt + 1} second(s)")
+                        break
+                    time.sleep(1)
             else:
                 self.logger.log_info("ℹ️ Publish button not found, assuming already published")
             
-            # Step 3: Read the artifact URL from clipboard
-            artifact_url = self._extract_artifact_url_from_clipboard()
+            # Step 3: Read the artifact URL from clipboard (if we didn't get it from interception)
+            if not artifact_url:
+                artifact_url = self._extract_artifact_url_from_clipboard()
             
             # Step 4: If clipboard reading failed, try clicking the Copy link button (appears after publish)
             if not artifact_url:
                 self.logger.log_info("🔄 Clipboard empty, looking for Copy link button...")
-                copy_link_button = self._find_copy_link_button()
+                if not copy_link_button:
+                    copy_link_button = self._find_copy_link_button()
+                    
                 if copy_link_button:
                     self.logger.log_info("🔗 Clicking Copy link button (will copy link to clipboard)")
                     self.driver.execute_script("arguments[0].click();", copy_link_button)
@@ -917,6 +933,7 @@ class ChatDataExtractor:
         try:
             self.logger.log_info("🔍 Looking for Publish button (Publish text only - NO share icons)")
             
+            # Method 1: Text-based XPath selectors (most reliable if text doesn't change)
             # ONLY search for buttons that contain "Publish" text - NEVER search for share icons
             publish_selectors = [
                 '//span[text()="Publish"]',
@@ -939,7 +956,7 @@ class ChatDataExtractor:
                     self.logger.log_debug(f"Publish selector {selector} failed: {e}")
                     continue
             
-            # Fallback: Search all buttons and check their text content
+            # Method 2: Search all buttons and check their text content
             self.logger.log_info("🔄 Searching all buttons for 'Publish' text")
             all_buttons = self.driver.find_elements(By.TAG_NAME, 'button')
             for i, button in enumerate(all_buttons):
@@ -955,6 +972,23 @@ class ChatDataExtractor:
                     self.logger.log_debug(f"Error checking button {i}: {e}")
                     continue
             
+            # Method 3: Fallback - Absolute XPath (last resort, fragile but useful if structure is stable)
+            # This is the specific XPath provided: /html/body/div[1]/div/main/main/div/div/div[2]/div/div/div[1]/div[2]/button[3]
+            try:
+                self.logger.log_info("🔄 Trying fallback absolute XPath for Publish button")
+                absolute_xpath = '/html/body/div[1]/div/main/main/div/div/div[2]/div/div/div[1]/div[2]/button[3]'
+                element = self.driver.find_element(By.XPATH, absolute_xpath)
+                if element.is_displayed():
+                    # Verify it's actually a publish button (not a share button)
+                    button_text = element.text.strip()
+                    if "Share" not in button_text:
+                        self.logger.log_success(f"✅ Found Publish button via absolute XPath: '{button_text}'")
+                        return element
+                    else:
+                        self.logger.log_debug(f"Absolute XPath found button but it's a share button: '{button_text}'")
+            except Exception as e:
+                self.logger.log_debug(f"Absolute XPath fallback failed: {e}")
+            
             self.logger.log_warning("⚠️ Publish button not found")
             return None
             
@@ -967,7 +1001,108 @@ class ChatDataExtractor:
         try:
             self.logger.log_info("🔍 Looking for Copy link button (lucide-link icon)")
             
-            # Method 1: Find any button with lucide-link SVG (broad search)
+            # Method 1: XPath - Find button with data attributes AND specific SVG path pattern
+            # This matches the exact structure: button[data-state="closed"][data-slot="tooltip-trigger"] with SVG containing path d="M10 13..."
+            xpath_selectors = [
+                # XPath: button with both data attributes and SVG with the specific link path
+                '//button[@data-state="closed" and @data-slot="tooltip-trigger" and .//svg[contains(@class, "lucide-link")]]',
+                # XPath: button with SVG containing the specific path pattern for link icon
+                '//button[.//svg[.//path[@d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"]]]',
+                # XPath: button with SVG containing both link path patterns
+                '//button[.//svg[.//path[contains(@d, "M10 13")] and .//path[contains(@d, "M14 11")]]]',
+                # XPath: button with data attributes (more flexible)
+                '//button[@data-slot="tooltip-trigger"][.//svg[contains(@class, "lucide") and contains(@class, "link")]]',
+                # XPath: button with SVG class containing lucide-link
+                '//button[.//svg[contains(@class, "lucide-link")]]',
+            ]
+            
+            for xpath in xpath_selectors:
+                try:
+                    buttons = self.driver.find_elements(By.XPATH, xpath)
+                    self.logger.log_debug(f"XPath '{xpath}' found {len(buttons)} buttons")
+                    
+                    for i, button in enumerate(buttons):
+                        if not button.is_displayed():
+                            continue
+                        
+                        try:
+                            # CRITICAL: Exclude any button with share2 SVG or "Share" text
+                            button_text = button.text.strip().lower()
+                            share2_svgs = button.find_elements(By.XPATH, './/svg[contains(@class, "lucide-share2")]')
+                            if share2_svgs or 'share' in button_text:
+                                self.logger.log_debug(f"Skipping button {i} - share button")
+                                continue
+                            
+                            # Verify it has the link SVG structure
+                            link_paths = button.find_elements(By.XPATH, './/path[contains(@d, "M10 13") or contains(@d, "M14 11")]')
+                            if link_paths:
+                                self.logger.log_success(f"✅ Found Copy link button via XPath - Element {i}")
+                                return button
+                        except Exception as e:
+                            self.logger.log_debug(f"Error verifying button {i}: {e}")
+                            continue
+                            
+                except Exception as e:
+                    self.logger.log_debug(f"XPath selector '{xpath}' failed: {e}")
+                    continue
+            
+            # Method 2: CSS Selectors - More flexible class matching
+            css_selectors = [
+                # Combined data attributes
+                'button[data-state="closed"][data-slot="tooltip-trigger"]',
+                # Individual data attributes
+                'button[data-slot="tooltip-trigger"]',
+                'button[data-state="closed"]',
+            ]
+            
+            for selector in css_selectors:
+                try:
+                    buttons = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    self.logger.log_debug(f"CSS selector '{selector}' found {len(buttons)} buttons")
+                    
+                    for button in buttons:
+                        if not button.is_displayed():
+                            continue
+                        
+                        try:
+                            # CRITICAL: Exclude share buttons
+                            button_text = button.text.strip().lower()
+                            share2_svgs = button.find_elements(By.CSS_SELECTOR, 'svg.lucide-share2, svg[class*="lucide-share2"]')
+                            if share2_svgs or 'share' in button_text:
+                                continue
+                            
+                            # Check for link SVG - handle multiple classes (lucide lucide-link)
+                            svgs = button.find_elements(By.CSS_SELECTOR, 'svg[class*="lucide-link"]')
+                            if svgs:
+                                self.logger.log_success(f"✅ Found Copy link button via CSS selector: {selector}")
+                                return button
+                            
+                            # Check SVG HTML for link icon characteristics
+                            all_svgs = button.find_elements(By.CSS_SELECTOR, 'svg')
+                            for svg in all_svgs:
+                                svg_html = svg.get_attribute('outerHTML') or ''
+                                svg_class = svg.get_attribute('class') or ''
+                                
+                                # Skip if it has share2 icon
+                                if 'lucide-share2' in svg_class or 'lucide-share2' in svg_html:
+                                    continue
+                                
+                                # Check for link icon characteristics
+                                if ('lucide-link' in svg_class or 
+                                    'lucide-link' in svg_html or
+                                    (svg_html.count('<path') >= 2 and 'M10 13' in svg_html)):
+                                    self.logger.log_success(f"✅ Found Copy link button via SVG HTML check")
+                                    return button
+                        except Exception as e:
+                            self.logger.log_debug(f"Error checking button: {e}")
+                            continue
+                            
+                except Exception as e:
+                    self.logger.log_debug(f"CSS selector '{selector}' failed: {e}")
+                    continue
+            
+            # Method 3: Fallback - Search all buttons and check SVG structure
+            self.logger.log_info("🔄 Searching all buttons for link icon structure")
             all_buttons = self.driver.find_elements(By.TAG_NAME, 'button')
             self.logger.log_debug(f"Found {len(all_buttons)} total buttons on page")
             
@@ -978,57 +1113,27 @@ class ChatDataExtractor:
                 try:
                     # CRITICAL: Exclude any button with share2 SVG or "Share" text
                     button_text = button.text.strip().lower()
-                    share2_svgs = button.find_elements(By.CSS_SELECTOR, 'svg.lucide-share2')
+                    share2_svgs = button.find_elements(By.XPATH, './/svg[contains(@class, "lucide-share2")]')
                     if share2_svgs or 'share' in button_text:
-                        continue  # Skip share buttons
+                        continue
                     
-                    # Check for lucide-link SVG
-                    svgs = button.find_elements(By.CSS_SELECTOR, 'svg.lucide-link')
-                    if svgs:
-                        self.logger.log_success(f"✅ Found Copy link button with lucide-link icon - Element {i}")
-                        return button
-                    
-                    # Fallback: Check for SVG with link structure (has path elements)
-                    all_svgs = button.find_elements(By.CSS_SELECTOR, 'svg')
-                    for svg in all_svgs:
-                        svg_html = svg.get_attribute('outerHTML') or ''
-                        # Skip if it has share2 icon
-                        if 'lucide-share2' in svg_html or (svg_html.count('<circle') >= 3 and svg_html.count('<line') >= 2):
-                            continue
-                        # Check for link icon characteristics (has path elements)
-                        if ('lucide-link' in svg_html or 
-                            (svg_html.count('<path') >= 2 and 'M10 13' in svg_html)):
-                            self.logger.log_success(f"✅ Found Copy link button via SVG structure - Element {i}")
-                            return button
+                    # Check for SVG with link path patterns using XPath
+                    link_paths = button.find_elements(By.XPATH, './/path[contains(@d, "M10 13") or contains(@d, "M14 11")]')
+                    if link_paths:
+                        # Verify it has both paths (link icon has 2 specific paths)
+                        all_paths = button.find_elements(By.XPATH, './/path')
+                        if len(all_paths) >= 2:
+                            # Check if paths match link icon pattern
+                            path_d_values = [p.get_attribute('d') or '' for p in all_paths]
+                            has_m10_13 = any('M10 13' in d for d in path_d_values)
+                            has_m14_11 = any('M14 11' in d for d in path_d_values)
+                            
+                            if has_m10_13 and has_m14_11:
+                                self.logger.log_success(f"✅ Found Copy link button via path pattern - Element {i}")
+                                return button
                             
                 except Exception as e:
                     self.logger.log_debug(f"Error checking button {i}: {e}")
-                    continue
-            
-            # Method 2: Try specific selectors
-            specific_selectors = [
-                'button[data-slot="tooltip-trigger"]',
-                'button[data-state="closed"]',
-            ]
-            
-            for selector in specific_selectors:
-                try:
-                    buttons = self.driver.find_elements(By.CSS_SELECTOR, selector)
-                    for button in buttons:
-                        if not button.is_displayed():
-                            continue
-                        # CRITICAL: Exclude share buttons
-                        button_text = button.text.strip().lower()
-                        share2_svgs = button.find_elements(By.CSS_SELECTOR, 'svg.lucide-share2')
-                        if share2_svgs or 'share' in button_text:
-                            continue  # Skip share buttons
-                        # Check for link SVG
-                        svgs = button.find_elements(By.CSS_SELECTOR, 'svg.lucide-link')
-                        if svgs:
-                            self.logger.log_success(f"✅ Found Copy link button via selector: {selector}")
-                            return button
-                except Exception as e:
-                    self.logger.log_debug(f"Selector {selector} failed: {e}")
                     continue
             
             self.logger.log_warning("⚠️ Copy link button not found")
