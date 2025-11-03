@@ -124,7 +124,8 @@ def extract_url_from_clipboard(logger):
         return ""
         
     except Exception as e:
-        logger.log_error(f"Error reading from clipboard: {e}")
+        # Silently handle clipboard errors in headless environments (expected to fail)
+        logger.log_debug(f"Clipboard not available (expected in headless): {e}")
         return ""
 
 

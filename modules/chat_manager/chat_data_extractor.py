@@ -480,19 +480,55 @@ class ChatDataExtractor:
         try:
             self.logger.log_info("📸 Capturing artifact screenshot")
             
-            # Step 1: Look for and click the Publish button (this will copy link to clipboard automatically)
+            # Step 1: Intercept clipboard copy using JavaScript before clicking publish
+            self.logger.log_info("🔧 Setting up clipboard interception")
+            clipboard_intercepted = False
+            try:
+                # Inject code to intercept clipboard.writeText calls and store the value
+                self.driver.execute_script("""
+                    window.__intercepted_clipboard_url = null;
+                    const originalWriteText = navigator.clipboard.writeText.bind(navigator.clipboard);
+                    navigator.clipboard.writeText = function(text) {
+                        console.log('Intercepted clipboard.writeText:', text);
+                        window.__intercepted_clipboard_url = text;
+                        return originalWriteText(text);
+                    };
+                """)
+                clipboard_intercepted = True
+                self.logger.log_success("✅ Clipboard interception set up")
+            except Exception as e:
+                self.logger.log_warning(f"⚠️ Could not set up clipboard interception: {e}")
+            
+            # Step 2: Look for and click the Publish button (this will copy link to clipboard automatically)
             publish_button = self._find_publish_button()
             if publish_button:
                 self.logger.log_info("📤 Clicking Publish button (will copy link to clipboard)")
                 self.driver.execute_script("arguments[0].click();", publish_button)
                 time.sleep(2)  # Wait for publish to complete and button to transform
+                
+                # Try to read the intercepted URL
+                if clipboard_intercepted:
+                    try:
+                        intercepted_url = self.driver.execute_script("return window.__intercepted_clipboard_url")
+                        if intercepted_url and 'flipsidecrypto.xyz' in intercepted_url:
+                            self.logger.log_success(f"✅ Got artifact URL from clipboard interception: {intercepted_url}")
+                            artifact_url = intercepted_url
+                            # Skip to navigation
+                            self.logger.log_info(f"🔗 Extracted artifact URL: {artifact_url}")
+                            self.logger.log_info("🧭 Navigating to artifact URL")
+                            self.driver.get(artifact_url)
+                            time.sleep(5)
+                            WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+                            return self._continue_artifact_screenshot()
+                    except Exception as e:
+                        self.logger.log_warning(f"⚠️ Could not read intercepted clipboard: {e}")
             else:
                 self.logger.log_info("ℹ️ Publish button not found, assuming already published")
             
-            # Step 2: Read the artifact URL from clipboard
+            # Step 3: Read the artifact URL from clipboard
             artifact_url = self._extract_artifact_url_from_clipboard()
             
-            # Step 3: If clipboard reading failed, try clicking the Copy link button (appears after publish)
+            # Step 4: If clipboard reading failed, try clicking the Copy link button (appears after publish)
             if not artifact_url:
                 self.logger.log_info("🔄 Clipboard empty, looking for Copy link button...")
                 copy_link_button = self._find_copy_link_button()
@@ -503,7 +539,7 @@ class ChatDataExtractor:
                     # Try reading from clipboard again
                     artifact_url = self._extract_artifact_url_from_clipboard()
             
-            # Step 4: Final fallback - Try extracting from View button
+            # Step 5: Final fallback - Try extracting from View button
             if not artifact_url:
                 self.logger.log_warning("⚠️ Could not read URL from clipboard, trying View button extraction...")
                 artifact_url = self._extract_artifact_url()
@@ -514,7 +550,7 @@ class ChatDataExtractor:
             
             self.logger.log_info(f"🔗 Extracted artifact URL: {artifact_url}")
             
-            # Step 5: Navigate directly to the artifact URL
+            # Step 6: Navigate directly to the artifact URL
             self.logger.log_info("🧭 Navigating to artifact URL")
             self.driver.get(artifact_url)
             time.sleep(5)
@@ -524,6 +560,15 @@ class ChatDataExtractor:
                 EC.presence_of_element_located((By.TAG_NAME, "body"))
             )
             
+            return self._continue_artifact_screenshot()
+            
+        except Exception as e:
+            self.logger.log_error(f"Artifact screenshot capture failed: {e}")
+            return ""
+    
+    def _continue_artifact_screenshot(self) -> str:
+        """Continue artifact screenshot after navigation."""
+        try:
             # Wait for artifact title to appear (e.g., "Chain Health Radar")
             self.logger.log_info("⏳ Waiting for artifact title to load...")
             try:
@@ -1034,7 +1079,9 @@ class ChatDataExtractor:
             return ""
             
         except Exception as e:
-            self.logger.log_error(f"Error reading from clipboard: {e}")
+            # Silently handle clipboard errors in headless environments (expected to fail)
+            # This is not an error since we have fallback methods
+            self.logger.log_debug(f"Clipboard not available (expected in headless): {e}")
             return ""
     
     def _find_view_button(self):
