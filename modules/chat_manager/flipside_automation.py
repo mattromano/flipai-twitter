@@ -203,7 +203,7 @@ class FlipsideChatManager:
             # Append comprehensive prompt rules to every prompt
             prompt_rules = """
 
-You are a crypto analyst creating Twitter posts. Always respond with:
+You are a crypto analyst creating Twitter posts. Always respond with the below requirements in on single response:
 
 HTML_CHART: 
 
@@ -215,9 +215,9 @@ Key fields: day_,n_users,n_quality_users etc.
 
 Requirements:
 
-- Always include charts with response
+- COMPLETE ANALYSIS IN ONE RESPONSE, AND END WITH THE TWITTER TEXT SECTION AND THE **THIS_CONCLUDES_THE_ANALYSIS** MARKER
 
-- Complete analysis in one response
+- Always include charts with response
 
 - Render HTML as artifact (NOT code block)
 
@@ -231,7 +231,7 @@ Requirements:
 
 
 
-MAKE SURE THE BOTTOM FOLLOWS THIS STRUCTURE EXACTLY:
+MAKE SURE THE BOTTOM OF THE ANALYSIS FOLLOWS THIS STRUCTURE EXACTLY:
 
 TWITTER_TEXT: [Concise bullet format with bullet symbol, each line under 50 chars, total under 260]
 
@@ -244,6 +244,9 @@ Format: "[Topic]:
  - [Metric]: "
 
 End with: **THIS_CONCLUDES_THE_ANALYSIS**
+____________________________________________________________________________________
+
+
 
 This is the prompt I want you to do the analysis on:
 
