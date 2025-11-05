@@ -58,8 +58,99 @@ class TwitterPoster:
             return True
             
         except Exception as e:
-            self.logger.log_error(f"Twitter client setup failed: {e}")
+            # Check if it's an HTTP error with status code
+            status_code = getattr(e, 'status_code', None)
+            if status_code == 401:
+                self.logger.log_error(f"❌ Twitter API authentication failed (401): {e}")
+                self.logger.log_error(f"   Check that your API keys and tokens are valid")
+            elif status_code == 403:
+                self.logger.log_error(f"❌ Twitter API authorization failed (403): {e}")
+                self.logger.log_error(f"   Check that your API keys and tokens have the correct permissions")
+            else:
+                self.logger.log_error(f"Twitter client setup failed: {e}")
             return False
+    
+    def test_api_connection(self) -> Dict[str, Any]:
+        """Test Twitter API connection and credentials without posting anything."""
+        try:
+            if not self.client:
+                return {
+                    "success": False,
+                    "error": "Twitter client not initialized",
+                    "error_type": "ClientNotInitialized"
+                }
+            
+            self.logger.log_info("🔍 Testing Twitter API connection...")
+            
+            # Use get_me() which is a read-only endpoint that verifies credentials
+            # This does NOT post anything, just retrieves the authenticated user's info
+            user_info = self.client.get_me(user_auth=True)
+            
+            if user_info and user_info.data:
+                user_data = user_info.data
+                username = getattr(user_data, 'username', 'Unknown')
+                user_id = getattr(user_data, 'id', 'Unknown')
+                name = getattr(user_data, 'name', 'Unknown')
+                
+                self.logger.log_success(f"✅ Twitter API connection successful!")
+                self.logger.log_info(f"   Authenticated as: @{username} ({name})")
+                self.logger.log_info(f"   User ID: {user_id}")
+                
+                return {
+                    "success": True,
+                    "username": username,
+                    "user_id": str(user_id),
+                    "name": name,
+                    "message": "API connection successful"
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": "No user data returned",
+                    "error_type": "NoUserData"
+                }
+                
+        except Exception as e:
+            # Extract HTTP status code if available
+            status_code = getattr(e, 'status_code', None)
+            api_codes = getattr(e, 'api_codes', [])
+            api_messages = getattr(e, 'api_messages', [])
+            
+            error_details = {
+                "success": False,
+                "error": str(e),
+                "error_type": e.__class__.__name__ if hasattr(e, '__class__') else "Unknown",
+                "status_code": status_code,
+                "api_codes": api_codes
+            }
+            
+            if status_code == 403:
+                error_details["error"] = f"403 Forbidden: {str(e)}"
+                if api_messages:
+                    error_details["error"] += f" | API Messages: {', '.join(map(str, api_messages))}"
+                self.logger.log_error(f"❌ API connection test failed (403 Forbidden): {e}")
+                self.logger.log_error(f"   This usually means:")
+                self.logger.log_error(f"   - API keys/tokens don't have read permissions")
+                self.logger.log_error(f"   - Account is suspended or restricted")
+                if api_codes:
+                    self.logger.log_error(f"   - API Error Codes: {api_codes}")
+            elif status_code == 401:
+                error_details["error"] = f"401 Unauthorized: {str(e)}"
+                self.logger.log_error(f"❌ API connection test failed (401 Unauthorized): {e}")
+                self.logger.log_error(f"   Check that your API credentials are valid")
+            elif status_code == 429:
+                error_details["error"] = f"429 Rate Limited: {str(e)}"
+                self.logger.log_error(f"⚠️ API connection test failed (429 Rate Limited): {e}")
+            else:
+                self.logger.log_error(f"❌ API connection test failed: {e}")
+                if hasattr(e, '__class__'):
+                    self.logger.log_error(f"   Exception type: {e.__class__.__name__}")
+                if status_code:
+                    self.logger.log_error(f"   HTTP Status: {status_code}")
+                if api_codes:
+                    self.logger.log_error(f"   API Error Codes: {api_codes}")
+            
+            return error_details
     
     def _find_artifact_screenshot(self, analysis_data: Dict[str, Any]) -> Optional[str]:
         """Find the artifact screenshot from analysis data using multiple fallback methods."""
@@ -116,7 +207,13 @@ class TwitterPoster:
                     media_ids.append(media.media_id)
                     self.logger.log_info(f"📸 Image uploaded: {image_path}")
                 except Exception as e:
-                    self.logger.log_warning(f"Failed to upload image: {e}")
+                    status_code = getattr(e, 'status_code', None)
+                    if status_code == 403:
+                        self.logger.log_error(f"❌ Image upload forbidden (403): {e}")
+                        self.logger.log_error(f"   Check API permissions for media upload")
+                        raise
+                    else:
+                        self.logger.log_warning(f"Failed to upload image: {e}")
             
             # Post the tweet
             response = self.client.create_tweet(
@@ -136,12 +233,69 @@ class TwitterPoster:
             }
             
         except Exception as e:
-            self.logger.log_error(f"Tweet posting failed: {e}")
-            return {
-                "success": False,
-                "error": str(e),
-                "tweet_id": None
-            }
+            # Extract HTTP status code if available
+            status_code = getattr(e, 'status_code', None)
+            api_codes = getattr(e, 'api_codes', [])
+            api_messages = getattr(e, 'api_messages', [])
+            
+            if status_code == 403:
+                error_msg = f"403 Forbidden: {str(e)}"
+                if api_messages:
+                    error_msg += f" | API Messages: {', '.join(map(str, api_messages))}"
+                self.logger.log_error(f"❌ Tweet posting forbidden (403): {e}")
+                self.logger.log_error(f"   This usually means:")
+                self.logger.log_error(f"   - API keys/tokens don't have write permissions")
+                self.logger.log_error(f"   - Account is suspended or restricted")
+                self.logger.log_error(f"   - Content violates Twitter's policies")
+                if api_codes:
+                    self.logger.log_error(f"   - API Error Codes: {api_codes}")
+                return {
+                    "success": False,
+                    "error": error_msg,
+                    "error_type": "403_Forbidden",
+                    "status_code": 403,
+                    "api_codes": api_codes,
+                    "tweet_id": None
+                }
+            elif status_code == 401:
+                error_msg = f"401 Unauthorized: {str(e)}"
+                self.logger.log_error(f"❌ Tweet posting unauthorized (401): {e}")
+                self.logger.log_error(f"   Check that your API credentials are valid")
+                return {
+                    "success": False,
+                    "error": error_msg,
+                    "error_type": "401_Unauthorized",
+                    "status_code": 401,
+                    "tweet_id": None
+                }
+            elif status_code == 429:
+                error_msg = f"429 Rate Limited: {str(e)}"
+                self.logger.log_error(f"⚠️ Rate limit exceeded (429): {e}")
+                return {
+                    "success": False,
+                    "error": error_msg,
+                    "error_type": "429_TooManyRequests",
+                    "status_code": 429,
+                    "tweet_id": None
+                }
+            else:
+                # Log all exception details for debugging
+                error_msg = str(e)
+                self.logger.log_error(f"Tweet posting failed: {e}")
+                if hasattr(e, '__class__'):
+                    self.logger.log_error(f"   Exception type: {e.__class__.__name__}")
+                if status_code:
+                    self.logger.log_error(f"   HTTP Status: {status_code}")
+                if api_codes:
+                    self.logger.log_error(f"   API Error Codes: {api_codes}")
+                return {
+                    "success": False,
+                    "error": error_msg,
+                    "error_type": e.__class__.__name__ if hasattr(e, '__class__') else "Unknown",
+                    "status_code": status_code,
+                    "api_codes": api_codes,
+                    "tweet_id": None
+                }
     
     def _text_to_bold_unicode(self, text: str) -> str:
         """Convert text to Unicode mathematical bold characters."""
@@ -384,12 +538,44 @@ class TwitterPoster:
             }
             
         except Exception as e:
-            self.logger.log_error(f"Reply posting failed: {e}")
-            return {
-                "success": False,
-                "error": str(e),
-                "tweet_id": None
-            }
+            # Extract HTTP status code if available
+            status_code = getattr(e, 'status_code', None)
+            api_codes = getattr(e, 'api_codes', [])
+            
+            if status_code == 403:
+                error_msg = f"403 Forbidden: {str(e)}"
+                self.logger.log_error(f"❌ Reply posting forbidden (403): {e}")
+                return {
+                    "success": False,
+                    "error": error_msg,
+                    "error_type": "403_Forbidden",
+                    "status_code": 403,
+                    "api_codes": api_codes,
+                    "tweet_id": None
+                }
+            elif status_code == 401:
+                error_msg = f"401 Unauthorized: {str(e)}"
+                self.logger.log_error(f"❌ Reply posting unauthorized (401): {e}")
+                return {
+                    "success": False,
+                    "error": error_msg,
+                    "error_type": "401_Unauthorized",
+                    "status_code": 401,
+                    "tweet_id": None
+                }
+            else:
+                error_msg = str(e)
+                self.logger.log_error(f"Reply posting failed: {e}")
+                if status_code:
+                    self.logger.log_error(f"   HTTP Status: {status_code}")
+                return {
+                    "success": False,
+                    "error": error_msg,
+                    "error_type": e.__class__.__name__ if hasattr(e, '__class__') else "Unknown",
+                    "status_code": status_code,
+                    "api_codes": api_codes,
+                    "tweet_id": None
+                }
     
     def post_analysis_link_reply(self, original_tweet_id: str, analysis_data: Dict[str, Any]) -> Dict[str, Any]:
         """Post a reply with a link to the analysis."""
