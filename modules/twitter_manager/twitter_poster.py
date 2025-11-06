@@ -6,6 +6,7 @@ Handles posting tweets to Twitter API.
 
 import os
 import json
+import time
 from typing import Dict, Any, Optional
 from datetime import datetime
 
@@ -188,6 +189,67 @@ class TwitterPoster:
         self.logger.log_warning("⚠️ No artifact screenshot found")
         return None
     
+    def _wait_for_media_processing(self, media, max_wait_seconds: int = 30) -> bool:
+        """Wait for media to finish processing before using it in a tweet."""
+        try:
+            # Check if media has processing_info attribute (indicates it needs processing)
+            if not hasattr(media, 'processing_info') or media.processing_info is None:
+                # No processing info means it's likely ready, but add a small delay
+                # to ensure Twitter has processed it (sometimes needed even for small images)
+                self.logger.log_info(f"📸 Media {media.media_id} appears ready, waiting 2s to ensure processing...")
+                time.sleep(2)
+                return True
+            
+            processing_info = media.processing_info
+            media_id = media.media_id
+            start_time = time.time()
+            
+            while time.time() - start_time < max_wait_seconds:
+                # Check current state
+                state = processing_info.get('state', 'unknown')
+                
+                if state == 'succeeded':
+                    self.logger.log_info(f"📸 Media {media_id} processing succeeded")
+                    return True
+                elif state == 'failed':
+                    error = processing_info.get('error', {})
+                    error_message = error.get('message', 'Unknown error')
+                    self.logger.log_error(f"❌ Media {media_id} processing failed: {error_message}")
+                    return False
+                elif state == 'in_progress':
+                    check_after = processing_info.get('check_after_secs', 5)
+                    self.logger.log_info(f"⏳ Media {media_id} still processing, waiting {check_after}s...")
+                    time.sleep(check_after)
+                    
+                    # Re-check status by getting media status again
+                    try:
+                        # Try to get updated status (if tweepy supports it)
+                        if hasattr(self.api, 'get_media_upload_status'):
+                            status = self.api.get_media_upload_status(media_id)
+                            if hasattr(status, 'processing_info') and status.processing_info:
+                                processing_info = status.processing_info
+                        else:
+                            # If method doesn't exist, wait a bit longer and assume ready
+                            # This is a fallback for older tweepy versions
+                            time.sleep(2)
+                            return True
+                    except Exception:
+                        # If we can't check status, wait a bit and assume it's processing
+                        time.sleep(check_after)
+                else:
+                    # Unknown state, wait a bit and check again
+                    self.logger.log_info(f"⏳ Media {media_id} in state '{state}', waiting...")
+                    time.sleep(2)
+            
+            self.logger.log_warning(f"⚠️ Media {media_id} processing timed out after {max_wait_seconds}s")
+            return False
+            
+        except Exception as e:
+            self.logger.log_warning(f"⚠️ Error checking media status: {e}")
+            # If we can't check status, assume it's ready (might be for small images)
+            # This is safer than failing - worst case we get a 400 error which we handle
+            return True
+    
     def post_tweet(self, text: str, image_path: Optional[str] = None) -> Dict[str, Any]:
         """Post a tweet with optional image."""
         try:
@@ -204,16 +266,24 @@ class TwitterPoster:
             if image_path and os.path.exists(image_path):
                 try:
                     media = self.api.media_upload(image_path)
-                    media_ids.append(media.media_id)
-                    self.logger.log_info(f"📸 Image uploaded: {image_path}")
+                    media_id = media.media_id
+                    self.logger.log_info(f"📸 Image uploaded: {image_path} (media_id: {media_id})")
+                    
+                    # Wait for media processing to complete before using it
+                    if not self._wait_for_media_processing(media):
+                        self.logger.log_warning(f"⚠️ Media processing failed or timed out, posting without image")
+                        # Continue without the image rather than failing completely
+                    else:
+                        media_ids.append(media_id)
+                        
                 except Exception as e:
                     status_code = getattr(e, 'status_code', None)
                     if status_code == 403:
                         self.logger.log_error(f"❌ Image upload forbidden (403): {e}")
                         self.logger.log_error(f"   Check API permissions for media upload")
-                        raise
+                        # Continue without the image rather than failing completely
                     else:
-                        self.logger.log_warning(f"Failed to upload image: {e}")
+                        self.logger.log_warning(f"Failed to upload image: {e}, posting without image")
             
             # Post the tweet
             response = self.client.create_tweet(
@@ -237,8 +307,40 @@ class TwitterPoster:
             status_code = getattr(e, 'status_code', None)
             api_codes = getattr(e, 'api_codes', [])
             api_messages = getattr(e, 'api_messages', [])
+            error_message = str(e)
             
-            if status_code == 403:
+            if status_code == 400:
+                # 400 Bad Request - often means invalid media IDs
+                if "media" in error_message.lower() or "invalid" in error_message.lower():
+                    error_msg = f"400 Bad Request: {error_message}"
+                    self.logger.log_error(f"❌ Tweet posting failed (400 Bad Request): {error_message}")
+                    self.logger.log_error(f"   This usually means:")
+                    self.logger.log_error(f"   - Media IDs are invalid or not ready")
+                    self.logger.log_error(f"   - Media processing wasn't completed before posting")
+                    if api_messages:
+                        self.logger.log_error(f"   - API Messages: {', '.join(map(str, api_messages))}")
+                    return {
+                        "success": False,
+                        "error": error_msg,
+                        "error_type": "400_BadRequest_InvalidMedia",
+                        "status_code": 400,
+                        "api_codes": api_codes,
+                        "tweet_id": None
+                    }
+                else:
+                    error_msg = f"400 Bad Request: {error_message}"
+                    self.logger.log_error(f"❌ Tweet posting failed (400 Bad Request): {error_message}")
+                    if api_messages:
+                        self.logger.log_error(f"   API Messages: {', '.join(map(str, api_messages))}")
+                    return {
+                        "success": False,
+                        "error": error_msg,
+                        "error_type": "400_BadRequest",
+                        "status_code": 400,
+                        "api_codes": api_codes,
+                        "tweet_id": None
+                    }
+            elif status_code == 403:
                 error_msg = f"403 Forbidden: {str(e)}"
                 if api_messages:
                     error_msg += f" | API Messages: {', '.join(map(str, api_messages))}"
