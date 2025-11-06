@@ -297,35 +297,8 @@ class TwitterPoster:
                     "tweet_id": None
                 }
     
-    def _text_to_bold_unicode(self, text: str) -> str:
-        """Convert text to Unicode mathematical bold characters."""
-        # Map regular characters to mathematical bold Unicode
-        bold_map = {
-            'A': '\U0001D400', 'B': '\U0001D401', 'C': '\U0001D402', 'D': '\U0001D403',
-            'E': '\U0001D404', 'F': '\U0001D405', 'G': '\U0001D406', 'H': '\U0001D407',
-            'I': '\U0001D408', 'J': '\U0001D409', 'K': '\U0001D40A', 'L': '\U0001D40B',
-            'M': '\U0001D40C', 'N': '\U0001D40D', 'O': '\U0001D40E', 'P': '\U0001D40F',
-            'Q': '\U0001D410', 'R': '\U0001D411', 'S': '\U0001D412', 'T': '\U0001D413',
-            'U': '\U0001D414', 'V': '\U0001D415', 'W': '\U0001D416', 'X': '\U0001D417',
-            'Y': '\U0001D418', 'Z': '\U0001D419',
-            'a': '\U0001D41A', 'b': '\U0001D41B', 'c': '\U0001D41C', 'd': '\U0001D41D',
-            'e': '\U0001D41E', 'f': '\U0001D41F', 'g': '\U0001D420', 'h': '\U0001D421',
-            'i': '\U0001D422', 'j': '\U0001D423', 'k': '\U0001D424', 'l': '\U0001D425',
-            'm': '\U0001D426', 'n': '\U0001D427', 'o': '\U0001D428', 'p': '\U0001D429',
-            'q': '\U0001D42A', 'r': '\U0001D42B', 's': '\U0001D42C', 't': '\U0001D42D',
-            'u': '\U0001D42E', 'v': '\U0001D42F', 'w': '\U0001D430', 'x': '\U0001D431',
-            'y': '\U0001D432', 'z': '\U0001D433',
-            '0': '\U0001D7CE', '1': '\U0001D7CF', '2': '\U0001D7D0', '3': '\U0001D7D1',
-            '4': '\U0001D7D2', '5': '\U0001D7D3', '6': '\U0001D7D4', '7': '\U0001D7D5',
-            '8': '\U0001D7D6', '9': '\U0001D7D7',
-            ' ': ' ', ':': ':', '%': '%', '$': '$', '(': '(', ')': ')', 
-            '&': '&', '#': '#', '!': '!', '?': '?', '-': '-', '=': '=',
-            '/': '/', '.': '.', ',': ',', '≠': '≠', '>': '>', '<': '<',
-        }
-        return ''.join(bold_map.get(c, c) for c in text)
-    
     def _format_twitter_text(self, text: str) -> str:
-        """Format Twitter text: remove leading colon, add line breaks for bullets, bold/underline title."""
+        """Format Twitter text: remove leading colon, add line breaks for bullets."""
         try:
             if not text:
                 return text
@@ -334,7 +307,6 @@ class TwitterPoster:
             text = text.lstrip(": ").strip()
             
             # Handle case where text might be all on one line with inline bullets
-            # First, split by common patterns to identify title and bullets
             lines = text.split('\n')
             if len(lines) == 1:
                 # Single line - need to parse it
@@ -351,51 +323,23 @@ class TwitterPoster:
                         lines = [f"{title}:"] + [f"• {b}" for b in bullets]
             
             formatted_lines = []
-            title_found = False
             
             for line in lines:
                 line = line.strip()
                 if not line:
                     continue
                 
-                # Check if this is the title (first non-bullet line, or line ending with colon)
-                if not title_found:
-                    # Check if line ends with colon (title pattern) or doesn't start with bullet
-                    if line.endswith(':') or not line.startswith(('•', '-', '*', '◦', '▪', '▫')):
-                        # This is the title
-                        title = line.rstrip(':').strip()
-                        # Remove any leading colon if still present
-                        title = title.lstrip(": ").strip()
-                        
-                        # Apply bold and underline using Unicode
-                        # Use mathematical bold Unicode for bold
-                        bold_title = self._text_to_bold_unicode(title)
-                        # Add underline using box drawing characters - match title length
-                        underline_length = min(len(title), 50)  # Cap at 50 characters for readability
-                        underline = "━" * underline_length
-                        formatted_title = f"{underline}\n{bold_title}\n{underline}"
-                        
-                        formatted_lines.append(formatted_title)
-                        title_found = True
-                    else:
-                        # First line is a bullet, no title
-                        formatted_lines.append(line)
-                else:
-                    # After title, process bullets
-                    if line.startswith(('•', '-', '*', '◦', '▪', '▫')):
-                        formatted_lines.append(line)
-                    else:
-                        # Might be inline bullets, split them
-                        if '•' in line:
-                            # Split by bullet and reformat
-                            parts = [p.strip() for p in line.split('•') if p.strip()]
-                            for part in parts:
-                                if not part.startswith(('•', '-', '*')):
-                                    formatted_lines.append(f"• {part}")
-                                else:
-                                    formatted_lines.append(part)
+                # If line contains inline bullets, split them
+                if '•' in line and not line.startswith('•'):
+                    # Split by bullet and reformat
+                    parts = [p.strip() for p in line.split('•') if p.strip()]
+                    for part in parts:
+                        if not part.startswith(('•', '-', '*')):
+                            formatted_lines.append(f"• {part}")
                         else:
-                            formatted_lines.append(line)
+                            formatted_lines.append(part)
+                else:
+                    formatted_lines.append(line)
             
             # Join with newlines
             formatted_text = '\n'.join(formatted_lines)
@@ -406,7 +350,7 @@ class TwitterPoster:
             formatted_text = formatted_text.replace(' - ', '\n- ')
             formatted_text = formatted_text.replace(' * ', '\n* ')
             
-            # Remove any double newlines
+            # Remove any double newlines (keep single newlines)
             while '\n\n\n' in formatted_text:
                 formatted_text = formatted_text.replace('\n\n\n', '\n\n')
             
