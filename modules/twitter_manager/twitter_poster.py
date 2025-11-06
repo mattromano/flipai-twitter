@@ -466,7 +466,10 @@ class TwitterPoster:
         """Post a tweet from analysis data."""
         try:
             twitter_text = analysis_data.get("data", {}).get("twitter_text", "")
+            # Use artifact_url if available, fallback to chat_url
+            artifact_url = analysis_data.get("data", {}).get("artifact_url", "")
             chat_url = analysis_data.get("data", {}).get("chat_url", "")
+            link_url = artifact_url if artifact_url else chat_url
             artifacts = analysis_data.get("data", {}).get("artifacts", [])
             
             if not twitter_text:
@@ -495,7 +498,9 @@ class TwitterPoster:
                     "test_mode": True,
                     "tweet_content": tweet_content,
                     "image_path": image_path,
+                    "artifact_url": artifact_url,
                     "chat_url": chat_url,
+                    "link_url": link_url,
                     "tweet_id": "TEST_MODE"
                 }
             
@@ -519,7 +524,10 @@ class TwitterPoster:
         """Create a preview of what the tweet will look like without posting."""
         try:
             twitter_text = analysis_data.get("data", {}).get("twitter_text", "")
+            # Use artifact_url if available, fallback to chat_url
+            artifact_url = analysis_data.get("data", {}).get("artifact_url", "")
             chat_url = analysis_data.get("data", {}).get("chat_url", "")
+            link_url = artifact_url if artifact_url else chat_url
             artifacts = analysis_data.get("data", {}).get("artifacts", [])
             
             if not twitter_text:
@@ -544,7 +552,9 @@ class TwitterPoster:
                 "success": True,
                 "tweet_content": tweet_content,
                 "image_path": image_path,
+                "artifact_url": artifact_url,
                 "chat_url": chat_url,
+                "link_url": link_url,
                 "character_count": len(tweet_content),
                 "has_image": image_path is not None,
                 "image_exists": os.path.exists(image_path) if image_path else False
@@ -626,10 +636,13 @@ class TwitterPoster:
     def post_analysis_link_reply(self, original_tweet_id: str, analysis_data: Dict[str, Any]) -> Dict[str, Any]:
         """Post a reply with a link to the analysis."""
         try:
+            # Use artifact_url if available, fallback to chat_url
+            artifact_url = analysis_data.get("data", {}).get("artifact_url", "")
             chat_url = analysis_data.get("data", {}).get("chat_url", "")
+            link_url = artifact_url if artifact_url else chat_url
             analysis_prompt = analysis_data.get("prompt", "")
             
-            if not chat_url:
+            if not link_url:
                 return {
                     "success": False,
                     "error": "No analysis URL found",
@@ -637,14 +650,14 @@ class TwitterPoster:
                 }
             
             # Create reply text with the analysis link
-            reply_text = f"📊 Full analysis: {chat_url}"
+            reply_text = f"📊 Full analysis: {link_url}"
             
             # Check character limit (280 - length of original tweet context)
             if len(reply_text) > 280:
                 # Truncate the URL if needed, but keep it functional
                 max_text_length = 250  # Leave room for URL
                 truncated_prompt = analysis_prompt[:max_text_length - len("📊 Full analysis: ") - 20] + "..."
-                reply_text = f"📊 {truncated_prompt}: {chat_url}"
+                reply_text = f"📊 {truncated_prompt}: {link_url}"
             
             return self.post_reply(original_tweet_id, reply_text)
             
@@ -665,7 +678,9 @@ class TwitterPoster:
                 "tweet_content": result.get("text", ""),
                 "image_path": result.get("image_path", ""),
                 "analysis_prompt": analysis_data.get("prompt", ""),
-                "analysis_url": analysis_data.get("data", {}).get("chat_url", ""),
+                "artifact_url": analysis_data.get("data", {}).get("artifact_url", ""),
+                "chat_url": analysis_data.get("data", {}).get("chat_url", ""),
+                "analysis_url": analysis_data.get("data", {}).get("artifact_url", "") or analysis_data.get("data", {}).get("chat_url", ""),
                 "success": result.get("success", False),
                 "error": result.get("error", "")
             }

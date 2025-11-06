@@ -223,11 +223,11 @@ Requirements:
 
 - Use high-contrast colors: ['#8B5CF6', '#EC4899', '#06B6D4', '#F59E0B', '#EF4444', '#10B981', '#6366F1', '#F97316']
 
-- Design for universal readability: white text on dark cards, dark borders, high contrast gradients
-
-- Cards: background:#334155, color:white
-
 - Validate data before creating charts - skip chart if not valid
+
+- Make sure the original prompt is included in the analysis sub title in the artifact
+
+- Try to only include visuals or small tables if necessary, and not too much text or very long tables.
 
 
 
@@ -864,6 +864,7 @@ This is the prompt I want you to do the analysis on:
                 results = {
                     "timestamp": datetime.now().isoformat(),
                     "chat_url": self.driver.current_url,
+                    "artifact_url": extraction_result.get("artifact_url", ""),
                     "response_text": extraction_result["response_text"],
                     "twitter_text": extraction_result["twitter_text"],
                     "artifacts": [],

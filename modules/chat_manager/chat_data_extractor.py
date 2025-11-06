@@ -79,6 +79,7 @@ class ChatDataExtractor:
             "error": None,
             "timestamp": datetime.now().isoformat(),
             "chat_url": chat_url,
+            "artifact_url": "",
             "twitter_text": "",
             "response_text": "",
             "artifact_screenshot": "",
@@ -109,8 +110,17 @@ class ChatDataExtractor:
             results["response_text"] = response_text
             
             # Step 6: Capture artifact screenshot (this will open new window)
-            artifact_screenshot = self._capture_artifact_screenshot()
+            artifact_result = self._capture_artifact_screenshot()
+            if isinstance(artifact_result, dict):
+                artifact_screenshot = artifact_result.get("screenshot", "")
+                artifact_url = artifact_result.get("artifact_url", "")
+            else:
+                # Backward compatibility: if it returns a string (screenshot path)
+                artifact_screenshot = artifact_result
+                artifact_url = getattr(self, 'artifact_url', '')
+            
             results["artifact_screenshot"] = artifact_screenshot
+            results["artifact_url"] = artifact_url
             if artifact_screenshot:
                 results["screenshots"].append(artifact_screenshot)
             
@@ -519,11 +529,18 @@ class ChatDataExtractor:
                             artifact_url = intercepted_url
                             # Skip to navigation
                             self.logger.log_info(f"🔗 Extracted artifact URL: {artifact_url}")
+                            # Store artifact_url as instance variable
+                            self.artifact_url = artifact_url
                             self.logger.log_info("🧭 Navigating to artifact URL")
                             self.driver.get(artifact_url)
                             time.sleep(5)
                             WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
-                            return self._continue_artifact_screenshot()
+                            screenshot_path = self._continue_artifact_screenshot()
+                            # Return both screenshot path and artifact URL
+                            return {
+                                "screenshot": screenshot_path,
+                                "artifact_url": artifact_url
+                            }
                     except Exception as e:
                         self.logger.log_warning(f"⚠️ Could not read intercepted clipboard: {e}")
                 
@@ -562,9 +579,12 @@ class ChatDataExtractor:
             
             if not artifact_url:
                 self.logger.log_error("❌ Could not extract artifact URL")
-                return ""
+                return {"screenshot": "", "artifact_url": ""}
             
             self.logger.log_info(f"🔗 Extracted artifact URL: {artifact_url}")
+            
+            # Store artifact_url as instance variable for access later
+            self.artifact_url = artifact_url
             
             # Step 6: Navigate directly to the artifact URL
             self.logger.log_info("🧭 Navigating to artifact URL")
@@ -576,11 +596,16 @@ class ChatDataExtractor:
                 EC.presence_of_element_located((By.TAG_NAME, "body"))
             )
             
-            return self._continue_artifact_screenshot()
+            screenshot_path = self._continue_artifact_screenshot()
+            # Return both screenshot path and artifact URL
+            return {
+                "screenshot": screenshot_path,
+                "artifact_url": artifact_url
+            }
             
         except Exception as e:
             self.logger.log_error(f"Artifact screenshot capture failed: {e}")
-            return ""
+            return {"screenshot": "", "artifact_url": ""}
     
     def _continue_artifact_screenshot(self) -> str:
         """Continue artifact screenshot after navigation."""
