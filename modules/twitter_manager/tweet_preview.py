@@ -27,7 +27,10 @@ class TweetPreviewGenerator:
         try:
             # Extract data
             twitter_text = analysis_data.get("data", {}).get("twitter_text", "")
+            # Use artifact_url if available, fallback to chat_url
+            artifact_url = analysis_data.get("data", {}).get("artifact_url", "")
             chat_url = analysis_data.get("data", {}).get("chat_url", "")
+            link_url = artifact_url if artifact_url else chat_url
             timestamp = analysis_data.get("timestamp", datetime.now().isoformat())
             character_count = analysis_data.get("data", {}).get("character_count", 0)
             # Create tweet content
@@ -38,8 +41,10 @@ class TweetPreviewGenerator:
                 "timestamp": timestamp,
                 "tweet_content": tweet_content,
                 "twitter_text": twitter_text,
+                "artifact_url": artifact_url,
                 "chat_url": chat_url,
-                "analysis_url": chat_url,
+                "link_url": link_url,
+                "analysis_url": link_url,
                 "character_count": len(tweet_content),
                 "success": True,
                 "preview_mode": True
@@ -257,7 +262,7 @@ class TweetPreviewGenerator:
         <p><strong>Twitter Text:</strong> {html.escape(tweet_data['twitter_text'])}</p>
         <p><strong>Character Count:</strong> {tweet_data['character_count']}/280</p>
         <p><strong>Status:</strong> {'✅ Ready to post' if tweet_data['character_count'] <= 280 else '⚠️ Too long'}</p>
-        <a href="{tweet_data['chat_url']}" class="chat-link" target="_blank">🔗 View Full Analysis</a>
+        <a href="{tweet_data.get('link_url', tweet_data.get('chat_url', ''))}" class="chat-link" target="_blank">🔗 View Full Analysis</a>
     </div>
 </body>
 </html>
@@ -279,7 +284,9 @@ class TweetPreviewGenerator:
 - **Twitter Text**: {tweet_data['twitter_text']}
 - **Character Count**: {tweet_data['character_count']}/280
 - **Status**: {'✅ Ready to post' if tweet_data['character_count'] <= 280 else '⚠️ Too long'}
-- **Chat URL**: {tweet_data['chat_url']}
+- **Artifact URL**: {tweet_data.get('artifact_url', 'N/A')}
+- **Chat URL**: {tweet_data.get('chat_url', 'N/A')}
+- **Link URL**: {tweet_data.get('link_url', tweet_data.get('chat_url', 'N/A'))}
 - **Timestamp**: {tweet_data['timestamp']}
 
 ## Preview
@@ -288,7 +295,7 @@ class TweetPreviewGenerator:
 > {tweet_data['tweet_content']}
 > 
 > 📅 {tweet_data['timestamp']}
-> 🔗 [View Full Analysis]({tweet_data['chat_url']})
+> 🔗 [View Full Analysis]({tweet_data.get('link_url', tweet_data.get('chat_url', ''))})
 """
         
         with open(output_file, 'w', encoding='utf-8') as f:
