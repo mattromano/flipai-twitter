@@ -32,6 +32,8 @@ class ChatDataExtractor:
         self.driver: Optional[webdriver.Chrome] = None
         self.authenticator: Optional[StealthAuthenticator] = None
         self.logger = AutomationLogger()
+        self._driver_owned_by_extractor: bool = False  # Track if we created the driver or it was passed in
+        self._authenticator_owned_by_extractor: bool = False  # Track if we created the authenticator or it was passed in
         
         # Setup directories
         os.makedirs("screenshots", exist_ok=True)
@@ -185,19 +187,29 @@ class ChatDataExtractor:
     def _setup_and_authenticate(self) -> bool:
         """Setup driver and authenticate."""
         try:
+            # Check if driver/authenticator were provided externally
+            driver_provided = self.driver is not None
+            authenticator_provided = self.authenticator is not None
+            
             # If driver is already set (e.g., passed from FlipsideChatManager), skip setup
-            if self.driver is not None:
+            if driver_provided:
                 self.logger.log_info("ℹ️ Driver already set, skipping authentication setup")
+                self._driver_owned_by_extractor = False  # Driver was passed in, don't clean it up
+                # If authenticator was also provided, we don't own it. If not provided, we don't own it either (we didn't create it)
+                self._authenticator_owned_by_extractor = False  # Don't clean up authenticator if driver was provided externally
                 return True
             
             self.logger.log_info("🤖 Setting up stealth authentication")
             
             self.authenticator = StealthAuthenticator(self.logger)
+            self._authenticator_owned_by_extractor = True  # We created the authenticator, we should clean it up
+            
             if not self.authenticator.setup_driver():
                 self.logger.log_error("❌ Failed to setup stealth driver")
                 return False
             
             self.driver = self.authenticator.driver
+            self._driver_owned_by_extractor = True  # We created the driver, we should clean it up
             
             if not self.authenticator.login():
                 self.logger.log_error("❌ Failed to authenticate")
@@ -1362,10 +1374,18 @@ class ChatDataExtractor:
             return ""
     
     def _cleanup(self):
-        """Clean up resources."""
+        """Clean up resources.
+        
+        Only cleans up if we created the driver/authenticator ourselves.
+        If the driver/authenticator was passed in from outside (e.g., FlipsideChatManager),
+        we don't clean it up as the caller is responsible for it.
+        """
         try:
-            if self.authenticator:
+            # Only cleanup if we created the authenticator ourselves
+            if self._authenticator_owned_by_extractor and self.authenticator:
                 self.authenticator.cleanup()
-            self.logger.log_info("🧹 Cleanup completed")
+                self.logger.log_info("🧹 Cleanup completed")
+            else:
+                self.logger.log_info("ℹ️ Skipping cleanup - driver/authenticator was provided externally")
         except Exception as e:
             self.logger.log_error(f"Cleanup error: {e}")
