@@ -6,6 +6,7 @@ Handles the core automation logic for Flipside AI chat interactions.
 
 import os
 import time
+import re
 import logging
 from typing import Dict, Any, Optional
 from datetime import datetime
@@ -32,6 +33,7 @@ class FlipsideChatManager:
         self.authenticator: Optional[StealthAuthenticator] = None
         self.logger: AutomationLogger = AutomationLogger()
         self.use_stealth_auth = use_stealth_auth
+        self.extracted_twitter_text: str = ""  # Store Twitter text extracted after conclusion marker
         
         # Setup directories
         os.makedirs("screenshots", exist_ok=True)
@@ -684,6 +686,155 @@ This is the prompt I want you to do the analysis on:
                 pass
             return False
     
+    def _extract_twitter_text_after_conclusion(self) -> str:
+        """Extract Twitter text right after conclusion marker is found.
+        
+        The Twitter text is formatted like:
+        TWITTER_TEXT:
+        
+        XXXXXXX
+        
+        THIS_CONCLUDES_THE_ANALYSIS
+        """
+        try:
+            self.logger.log_info("🔍 Extracting Twitter text from page content...")
+            
+            # Get the page text content
+            try:
+                page_text = self.driver.find_element(By.TAG_NAME, "body").text
+            except:
+                # Fallback: try to get text from the main content area
+                try:
+                    page_text = self.driver.find_element(By.CSS_SELECTOR, "main, .main, .content, .chat-content").text
+                except:
+                    self.logger.log_warning("⚠️ Could not get page text")
+                    return ""
+            
+            # Look for the pattern: TWITTER_TEXT: ... THIS_CONCLUDES_THE_ANALYSIS
+            lines = page_text.split('\n')
+            twitter_content = ""
+            found_twitter_text_marker = False
+            collecting_content = False
+            
+            for i, line in enumerate(lines):
+                line_stripped = line.strip()
+                
+                # Look for TWITTER_TEXT: marker
+                if "TWITTER_TEXT:" in line_stripped:
+                    found_twitter_text_marker = True
+                    collecting_content = True
+                    # Extract content after "TWITTER_TEXT:"
+                    twitter_part = line_stripped.split("TWITTER_TEXT:")[-1].strip()
+                    if twitter_part:
+                        twitter_content += twitter_part + "\n"
+                    continue
+                
+                # If we're collecting content and haven't hit the conclusion marker yet
+                if collecting_content and found_twitter_text_marker:
+                    # Stop at conclusion marker
+                    if ("THIS_CONCLUDES_THE_ANALYSIS" in line_stripped or 
+                        "**THIS_CONCLUDES_THE_ANALYSIS**" in line_stripped):
+                        break
+                    
+                    # Skip empty lines at the start
+                    if not twitter_content and not line_stripped:
+                        continue
+                    
+                    # Collect the content (skip markdown headers and formatting)
+                    if line_stripped and not line_stripped.startswith("**") and not line_stripped.startswith("##"):
+                        # Preserve bullet points
+                        if line_stripped.startswith(("•", "-", "*", "◦", "▪", "▫")):
+                            twitter_content += line_stripped + "\n"
+                        else:
+                            twitter_content += line_stripped + " "
+            
+            if twitter_content.strip():
+                # Clean up the Twitter text
+                clean_twitter_text = twitter_content.strip()
+                
+                # Remove any remaining "TWITTER_TEXT:" prefix
+                if clean_twitter_text.startswith("TWITTER_TEXT:"):
+                    clean_twitter_text = clean_twitter_text[12:].strip()
+                
+                # Remove emoji
+                clean_twitter_text = re.sub(r'[\ud83c-\udbff\udc00-\udfff]', '', clean_twitter_text).strip()
+                
+                # Normalize bullet points
+                lines = clean_twitter_text.split('\n')
+                normalized_lines = []
+                for line in lines:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    # Normalize bullet points to use "• "
+                    if line.startswith(("-", "*")):
+                        line = "• " + line[1:].strip()
+                    elif line.startswith(("◦", "▪", "▫")):
+                        line = "• " + line[1:].strip()
+                    elif line.startswith("•") and not line.startswith("• "):
+                        line = "• " + line[1:].strip()
+                    normalized_lines.append(line)
+                
+                clean_twitter_text = '\n'.join(normalized_lines)
+                
+                self.logger.log_success(f"✅ Extracted Twitter text: {len(clean_twitter_text)} characters")
+                return clean_twitter_text
+            
+            # Fallback: Try to find Twitter text using XPath selectors
+            self.logger.log_info("🔍 Trying XPath selectors for Twitter text...")
+            twitter_selectors = [
+                "//div[contains(text(), 'TWITTER_TEXT:') and not(ancestor::*[@data-message-role='user'])]",
+                "//span[contains(text(), 'TWITTER_TEXT:') and not(ancestor::*[@data-message-role='user'])]",
+                "//p[contains(text(), 'TWITTER_TEXT:') and not(ancestor::*[@data-message-role='user'])]",
+            ]
+            
+            for selector in twitter_selectors:
+                try:
+                    elements = self.driver.find_elements(By.XPATH, selector)
+                    for element in elements:
+                        if self._is_user_message(element):
+                            continue
+                        if element.is_displayed() and element.text.strip():
+                            text_content = element.text.strip()
+                            if "TWITTER_TEXT:" in text_content:
+                                # Extract content between TWITTER_TEXT: and THIS_CONCLUDES_THE_ANALYSIS
+                                lines = text_content.split('\n')
+                                twitter_content = ""
+                                collecting = False
+                                
+                                for line in lines:
+                                    if "TWITTER_TEXT:" in line:
+                                        collecting = True
+                                        twitter_part = line.split("TWITTER_TEXT:")[-1].strip()
+                                        if twitter_part:
+                                            twitter_content += twitter_part + "\n"
+                                    elif collecting:
+                                        if "THIS_CONCLUDES_THE_ANALYSIS" in line:
+                                            break
+                                        if line.strip() and not line.strip().startswith("**") and not line.strip().startswith("##"):
+                                            if line.strip().startswith(("•", "-", "*")):
+                                                twitter_content += line.strip() + "\n"
+                                            else:
+                                                twitter_content += line.strip() + " "
+                                
+                                if twitter_content.strip():
+                                    clean_twitter_text = twitter_content.strip()
+                                    if clean_twitter_text.startswith("TWITTER_TEXT:"):
+                                        clean_twitter_text = clean_twitter_text[12:].strip()
+                                    clean_twitter_text = re.sub(r'[\ud83c-\udbff\udc00-\udfff]', '', clean_twitter_text).strip()
+                                    self.logger.log_success(f"✅ Extracted Twitter text via XPath: {len(clean_twitter_text)} characters")
+                                    return clean_twitter_text
+                except Exception as e:
+                    self.logger.log_debug(f"XPath selector {selector} failed: {e}")
+                    continue
+            
+            self.logger.log_warning("⚠️ Twitter text not found")
+            return ""
+            
+        except Exception as e:
+            self.logger.log_error(f"Twitter text extraction failed: {e}")
+            return ""
+    
     def wait_for_response(self, timeout: int = 600) -> bool:
         """Wait for complete AI response including charts and visualizations."""
         try:
@@ -801,6 +952,13 @@ This is the prompt I want you to do the analysis on:
                     # Response is complete if we found the conclusion marker
                     if conclusion_found:
                         self.logger.log_success("Analysis conclusion marker found - response complete!")
+                        # Extract Twitter text right after conclusion marker is found
+                        self.logger.log_info("🐦 Extracting Twitter text right after conclusion marker...")
+                        self.extracted_twitter_text = self._extract_twitter_text_after_conclusion()
+                        if self.extracted_twitter_text:
+                            self.logger.log_success(f"✅ Twitter text extracted: {len(self.extracted_twitter_text)} characters")
+                        else:
+                            self.logger.log_warning("⚠️ Twitter text not found after conclusion marker")
                         response_complete = True
                         break
                     # Response is complete if chat input is editable again
@@ -855,18 +1013,25 @@ This is the prompt I want you to do the analysis on:
             
             # Extract data using the specialized extractor (will use existing driver)
             # Use current URL directly - extractor will handle artifact extraction
-            extraction_result = extractor.extract_from_chat_url(self.driver.current_url)
+            # Pass pre-extracted Twitter text to avoid duplicate extraction
+            extraction_result = extractor.extract_from_chat_url(
+                self.driver.current_url, 
+                pre_extracted_twitter_text=self.extracted_twitter_text
+            )
             
             if extraction_result["success"]:
                 # Add artifact screenshot if available
                 artifact_screenshot_path = extraction_result.get("artifact_screenshot", "")
+                
+                # Use pre-extracted Twitter text if available (extracted right after conclusion marker)
+                twitter_text = self.extracted_twitter_text if self.extracted_twitter_text else extraction_result["twitter_text"]
                 
                 results = {
                     "timestamp": datetime.now().isoformat(),
                     "chat_url": self.driver.current_url,
                     "artifact_url": extraction_result.get("artifact_url", ""),
                     "response_text": extraction_result["response_text"],
-                    "twitter_text": extraction_result["twitter_text"],
+                    "twitter_text": twitter_text,
                     "artifacts": [],
                     "screenshots": extraction_result.get("screenshots", []),
                     "artifact_screenshot": artifact_screenshot_path,  # Preserve for fallback
@@ -896,11 +1061,14 @@ This is the prompt I want you to do the analysis on:
             # Fallback to original extraction if specialized extractor fails
             self.logger.log_warning("⚠️ Specialized extractor failed, using fallback extraction")
             
+            # Use pre-extracted Twitter text if available
+            twitter_text = self.extracted_twitter_text if self.extracted_twitter_text else ""
+            
             results = {
                 "timestamp": datetime.now().isoformat(),
                 "chat_url": self.driver.current_url,
                 "response_text": "",
-                "twitter_text": "",
+                "twitter_text": twitter_text,
                 "artifacts": [],
                 "screenshots": [],
                 "response_metadata": {}

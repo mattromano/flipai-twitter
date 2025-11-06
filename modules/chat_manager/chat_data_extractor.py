@@ -72,8 +72,13 @@ class ChatDataExtractor:
                 pass
             return False
     
-    def extract_from_chat_url(self, chat_url: str) -> Dict[str, Any]:
-        """Extract Twitter text and capture artifacts from a chat URL."""
+    def extract_from_chat_url(self, chat_url: str, pre_extracted_twitter_text: str = "") -> Dict[str, Any]:
+        """Extract Twitter text and capture artifacts from a chat URL.
+        
+        Args:
+            chat_url: The URL of the chat to extract data from
+            pre_extracted_twitter_text: Optional pre-extracted Twitter text (skips extraction if provided)
+        """
         results = {
             "success": False,
             "error": None,
@@ -97,13 +102,22 @@ class ChatDataExtractor:
             non_shared_url = self._convert_to_non_shared_url(chat_url)
             self.logger.log_info(f"🔄 Using non-shared URL for artifact viewing: {non_shared_url}")
             
-            # Step 3: Navigate to non-shared chat
-            if not self._navigate_to_chat(non_shared_url):
-                raise Exception("Failed to navigate to chat")
+            # Step 3: Navigate to non-shared chat (skip if already on the page)
+            # Check if we're already on the correct page
+            current_url = self.driver.current_url if self.driver else ""
+            if non_shared_url not in current_url and chat_url not in current_url:
+                if not self._navigate_to_chat(non_shared_url):
+                    raise Exception("Failed to navigate to chat")
+            else:
+                self.logger.log_info("ℹ️ Already on the correct chat page, skipping navigation")
             
-            # Step 4: Extract Twitter text FIRST (before clicking View)
-            twitter_text = self._extract_twitter_text()
-            results["twitter_text"] = twitter_text
+            # Step 4: Extract Twitter text (skip if pre-extracted)
+            if pre_extracted_twitter_text:
+                self.logger.log_info("ℹ️ Using pre-extracted Twitter text, skipping extraction")
+                results["twitter_text"] = pre_extracted_twitter_text
+            else:
+                twitter_text = self._extract_twitter_text()
+                results["twitter_text"] = twitter_text
             
             # Step 5: Extract full response text
             response_text = self._extract_response_text()
@@ -171,6 +185,11 @@ class ChatDataExtractor:
     def _setup_and_authenticate(self) -> bool:
         """Setup driver and authenticate."""
         try:
+            # If driver is already set (e.g., passed from FlipsideChatManager), skip setup
+            if self.driver is not None:
+                self.logger.log_info("ℹ️ Driver already set, skipping authentication setup")
+                return True
+            
             self.logger.log_info("🤖 Setting up stealth authentication")
             
             self.authenticator = StealthAuthenticator(self.logger)
