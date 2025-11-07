@@ -1025,6 +1025,13 @@ This is the prompt I want you to do the analysis on:
                 
                 # Use pre-extracted Twitter text if available (extracted right after conclusion marker)
                 twitter_text = self.extracted_twitter_text if self.extracted_twitter_text else extraction_result["twitter_text"]
+                if not twitter_text:
+                    self.logger.log_warning("⚠️ Twitter text empty after specialized extractor, attempting fallback from page")
+                    twitter_text = self._extract_twitter_text_after_conclusion()
+                    if twitter_text:
+                        self.logger.log_success(f"✅ Recovered Twitter text via fallback: {len(twitter_text)} characters")
+                    else:
+                        self.logger.log_warning("⚠️ Fallback Twitter text recovery failed")
                 
                 results = {
                     "timestamp": datetime.now().isoformat(),
@@ -1073,6 +1080,13 @@ This is the prompt I want you to do the analysis on:
                 "screenshots": [],
                 "response_metadata": {}
             }
+            
+            if not results["twitter_text"]:
+                self.logger.log_warning("⚠️ Fallback extractor missing Twitter text, attempting page scrape")
+                recovered_text = self._extract_twitter_text_after_conclusion()
+                if recovered_text:
+                    results["twitter_text"] = recovered_text
+                    self.logger.log_success(f"✅ Recovered Twitter text during fallback path: {len(recovered_text)} characters")
             
             # First try to use the copy button to get the full response
             copy_button_found = self._try_copy_response()
@@ -1378,6 +1392,8 @@ This is the prompt I want you to do the analysis on:
         }
         
         try:
+            # Reset transient data from previous runs
+            self.extracted_twitter_text = ""
             # Step 1: Initialization
             self.logger.log_info("🚀 Starting Flipside AI Analysis Workflow")
             self.logger.log_info("=" * 60)
