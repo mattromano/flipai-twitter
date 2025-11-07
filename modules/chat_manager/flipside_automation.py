@@ -23,6 +23,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 from modules.shared.authentication import StealthAuthenticator
 from modules.shared.logger import AutomationLogger
+from modules.shared.text_utils import is_placeholder_twitter_text
 
 
 class FlipsideChatManager:
@@ -777,8 +778,11 @@ This is the prompt I want you to do the analysis on:
                 
                 clean_twitter_text = '\n'.join(normalized_lines)
                 
-                self.logger.log_success(f"✅ Extracted Twitter text: {len(clean_twitter_text)} characters")
-                return clean_twitter_text
+                if is_placeholder_twitter_text(clean_twitter_text):
+                    self.logger.log_warning("⚠️ Extracted Twitter text matches prompt template, retrying...")
+                else:
+                    self.logger.log_success(f"✅ Extracted Twitter text: {len(clean_twitter_text)} characters")
+                    return clean_twitter_text
             
             # Fallback: Try to find Twitter text using XPath selectors
             self.logger.log_info("🔍 Trying XPath selectors for Twitter text...")
@@ -822,8 +826,11 @@ This is the prompt I want you to do the analysis on:
                                     if clean_twitter_text.startswith("TWITTER_TEXT:"):
                                         clean_twitter_text = clean_twitter_text[12:].strip()
                                     clean_twitter_text = re.sub(r'[\ud83c-\udbff\udc00-\udfff]', '', clean_twitter_text).strip()
-                                    self.logger.log_success(f"✅ Extracted Twitter text via XPath: {len(clean_twitter_text)} characters")
-                                    return clean_twitter_text
+                                    if is_placeholder_twitter_text(clean_twitter_text):
+                                        self.logger.log_warning("⚠️ XPath Twitter text matches prompt template, continuing search...")
+                                    else:
+                                        self.logger.log_success(f"✅ Extracted Twitter text via XPath: {len(clean_twitter_text)} characters")
+                                        return clean_twitter_text
                 except Exception as e:
                     self.logger.log_debug(f"XPath selector {selector} failed: {e}")
                     continue
@@ -1025,6 +1032,9 @@ This is the prompt I want you to do the analysis on:
                 
                 # Use pre-extracted Twitter text if available (extracted right after conclusion marker)
                 twitter_text = self.extracted_twitter_text if self.extracted_twitter_text else extraction_result["twitter_text"]
+                if twitter_text and is_placeholder_twitter_text(twitter_text):
+                    self.logger.log_warning("⚠️ Twitter text matches prompt template, triggering fallback extraction")
+                    twitter_text = ""
                 if not twitter_text:
                     self.logger.log_warning("⚠️ Twitter text empty after specialized extractor, attempting fallback from page")
                     twitter_text = self._extract_twitter_text_after_conclusion()
@@ -1061,6 +1071,10 @@ This is the prompt I want you to do the analysis on:
                     self.logger.log_info(f"📊 Results now contain {len(results['artifacts'])} artifacts")
                 else:
                     self.logger.log_warning(f"⚠️ Artifact screenshot not found or invalid: {artifact_screenshot_path}")
+                
+                if results["twitter_text"] and is_placeholder_twitter_text(results["twitter_text"]):
+                    self.logger.log_warning("⚠️ Final Twitter text still matches prompt template, clearing value")
+                    results["twitter_text"] = ""
                 
                 self.logger.log_success(f"✅ Data extracted using specialized extractor: {len(results['twitter_text'])} chars Twitter, {len(results['response_text'])} chars response")
                 return results
@@ -1151,8 +1165,12 @@ This is the prompt I want you to do the analysis on:
                                             twitter_content += line.strip() + " "
                                 
                                 if twitter_content.strip():
-                                    results["twitter_text"] = twitter_content.strip()
-                                    results["response_text"] = twitter_content.strip()
+                                    clean_twitter_text = twitter_content.strip()
+                                    if is_placeholder_twitter_text(clean_twitter_text):
+                                        self.logger.log_warning("⚠️ New-format Twitter text matches prompt template, continuing search...")
+                                        continue
+                                    results["twitter_text"] = clean_twitter_text
+                                    results["response_text"] = clean_twitter_text
                                     self.logger.log_success(f"Extracted Twitter text: {len(results['twitter_text'])} characters")
                                     break
                             
@@ -1181,8 +1199,12 @@ This is the prompt I want you to do the analysis on:
                                             twitter_content += line.strip() + " "
                                 
                                 if twitter_content.strip():
-                                    results["twitter_text"] = twitter_content.strip()
-                                    results["response_text"] = twitter_content.strip()
+                                    clean_twitter_text = twitter_content.strip()
+                                    if is_placeholder_twitter_text(clean_twitter_text):
+                                        self.logger.log_warning("⚠️ Old-format Twitter text matches prompt template, continuing search...")
+                                        continue
+                                    results["twitter_text"] = clean_twitter_text
+                                    results["response_text"] = clean_twitter_text
                                     self.logger.log_success(f"Extracted Twitter text: {len(results['twitter_text'])} characters")
                                     break
                             
@@ -1346,6 +1368,10 @@ This is the prompt I want you to do the analysis on:
                 pass
             
             # Create response metadata
+            if results["twitter_text"] and is_placeholder_twitter_text(results["twitter_text"]):
+                self.logger.log_warning("⚠️ Final fallback Twitter text matches prompt template, clearing value")
+                results["twitter_text"] = ""
+            
             results["response_metadata"] = {
                 "word_count": len(results["response_text"].split()) if results["response_text"] else 0,
                 "has_charts": any("chart" in a["type"] for a in results["artifacts"]),

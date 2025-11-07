@@ -9,9 +9,10 @@ import json
 import html
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from modules.shared.logger import AutomationLogger
+from modules.shared.text_utils import is_placeholder_twitter_text
 
 
 class TweetPreviewGenerator:
@@ -22,7 +23,7 @@ class TweetPreviewGenerator:
         self.previews_dir = Path("tweet_previews")
         self.previews_dir.mkdir(exist_ok=True)
     
-    def create_tweet_preview(self, analysis_data: Dict[str, Any]) -> Dict[str, Any]:
+    def create_tweet_preview(self, analysis_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Create a tweet preview from analysis data."""
         try:
             # Extract data
@@ -34,6 +35,10 @@ class TweetPreviewGenerator:
             timestamp = analysis_data.get("timestamp", datetime.now().isoformat())
             character_count = analysis_data.get("data", {}).get("character_count", 0)
             # Create tweet content
+            if is_placeholder_twitter_text(twitter_text):
+                self.logger.log_error("❌ Twitter text is a prompt template placeholder, skipping preview generation")
+                return None
+
             tweet_content = f"🔍 Fresh crypto analysis from FlipsideAI:\n\n{twitter_text}"
             
             # Create tweet data

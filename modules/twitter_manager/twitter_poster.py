@@ -14,6 +14,7 @@ import tweepy
 from tweepy import OAuth1UserHandler, Client
 
 from modules.shared.logger import AutomationLogger
+from modules.shared.text_utils import is_placeholder_twitter_text
 
 
 class TwitterPoster:
@@ -478,6 +479,13 @@ class TwitterPoster:
                     "error": "No Twitter text found in analysis data",
                     "tweet_id": None
                 }
+            if is_placeholder_twitter_text(twitter_text):
+                self.logger.log_error("❌ Twitter text is a prompt template placeholder, aborting post")
+                return {
+                    "success": False,
+                    "error": "Twitter text is a placeholder template",
+                    "tweet_id": None
+                }
             
             # Format the Twitter text
             tweet_content = self._format_twitter_text(twitter_text)
@@ -534,6 +542,12 @@ class TwitterPoster:
                 return {
                     "success": False,
                     "error": "No Twitter text found in analysis data"
+                }
+            if is_placeholder_twitter_text(twitter_text):
+                self.logger.log_error("❌ Twitter text is a prompt template placeholder, cannot create preview")
+                return {
+                    "success": False,
+                    "error": "Twitter text is a placeholder template"
                 }
             
             # Format the Twitter text

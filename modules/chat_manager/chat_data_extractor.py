@@ -24,6 +24,7 @@ except ImportError:
 
 from modules.shared.authentication import StealthAuthenticator
 from modules.shared.logger import AutomationLogger
+from modules.shared.text_utils import is_placeholder_twitter_text
 
 
 class ChatDataExtractor:
@@ -338,7 +339,7 @@ class ChatDataExtractor:
                                     clean_twitter_text = self._normalize_bullet_points(clean_twitter_text)
                                     # Convert inline bullet points to separate lines
                                     clean_twitter_text = self._convert_inline_bullets_to_lines(clean_twitter_text)
-                                    if self._looks_like_prompt_template(clean_twitter_text):
+                                    if is_placeholder_twitter_text(clean_twitter_text):
                                         self.logger.log_debug("Skipping prompt template match for extracted Twitter text")
                                         continue
                                     self.logger.log_success(f"✅ Extracted Twitter text with bullet points: {len(clean_twitter_text)} characters")
@@ -370,7 +371,7 @@ class ChatDataExtractor:
                             if element.is_displayed() and element.text.strip():
                                 text_content = element.text.strip()
                                 if len(text_content) > 50 and len(text_content) < 300:
-                                    if self._looks_like_prompt_template(text_content):
+                                    if is_placeholder_twitter_text(text_content):
                                         self.logger.log_debug("Skipping fallback candidate that matches prompt template")
                                         continue
                                     self.logger.log_info(f"✅ Found potential Twitter text: {len(text_content)} characters")
@@ -421,7 +422,7 @@ class ChatDataExtractor:
                             clean_twitter_text = self._convert_inline_bullets_to_lines(clean_twitter_text)
                             # Remove lingering leading punctuation
                             clean_twitter_text = clean_twitter_text.lstrip(": ").strip()
-                            if self._looks_like_prompt_template(clean_twitter_text):
+                            if is_placeholder_twitter_text(clean_twitter_text):
                                 self.logger.log_debug("Skipping page-text candidate that matches prompt template")
                             else:
                                 self.logger.log_success(f"✅ Extracted Twitter text from page text: {len(clean_twitter_text)} characters")
@@ -555,36 +556,6 @@ class ChatDataExtractor:
             self.logger.log_debug(f"Inline bullet conversion failed: {e}")
             return text
 
-    def _looks_like_prompt_template(self, text: str) -> bool:
-        """Detect whether the extracted text is the prompt template rather than the assistant response."""
-        try:
-            if not text:
-                return False
-
-            normalized = text.lower().replace("\n", " ").strip()
-
-            prompt_markers = [
-                "concise bullet format",
-                'format: "[topic]',
-                "[topic]:",
-                "[metric]",
-                "html_chart",
-                "this_concludes_the_analysis",
-                "key fields:",
-            ]
-
-            if any(marker in normalized for marker in prompt_markers):
-                return True
-
-            # If the text is mostly placeholders (lots of square brackets), treat as prompt
-            bracket_ratio = normalized.count("[") + normalized.count("]")
-            if bracket_ratio >= max(2, len(normalized) // 15):
-                return True
-
-            return False
-        except Exception:
-            return False
-    
     def _extract_response_text(self) -> str:
         """Extract the full response text from the chat."""
         try:
