@@ -12,6 +12,7 @@ from typing import Dict, Any, Optional
 from datetime import datetime
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
@@ -112,6 +113,9 @@ class ChatDataExtractor:
                     raise Exception("Failed to navigate to chat")
             else:
                 self.logger.log_info("ℹ️ Already on the correct chat page, skipping navigation")
+            
+            # Ensure that all assistant messages are loaded (some lists are virtualized)
+            self._ensure_chat_messages_loaded()
             
             # Step 4: Extract Twitter text (skip if pre-extracted)
             if pre_extracted_twitter_text:
@@ -388,11 +392,20 @@ class ChatDataExtractor:
                     if "TWITTER_TEXT:" in line:
                         # Found the Twitter text line, collect following lines
                         twitter_content = ""
-                        for j in range(i, min(i + 10, len(lines))):  # Look at next 10 lines
-                            current_line = lines[j].strip()
-                            if current_line and not current_line.startswith("**") and not current_line.startswith("##"):
-                                if "THIS_CONCLUDES_THE_ANALYSIS" in current_line:
-                                    break
+                        for j in range(i, min(i + 12, len(lines))):  # Allow a slightly larger window
+                            raw_line = lines[j]
+                            current_line = raw_line.strip()
+                            if not current_line:
+                                if twitter_content and not twitter_content.endswith("\n"):
+                                    twitter_content += "\n"
+                                continue
+                            if current_line.startswith("**") or current_line.startswith("##"):
+                                continue
+                            if "THIS_CONCLUDES_THE_ANALYSIS" in current_line:
+                                break
+                            if current_line.startswith(("•", "-", "*")):
+                                twitter_content += current_line + "\n"
+                            else:
                                 twitter_content += current_line + " "
                         
                         if twitter_content.strip():
@@ -403,6 +416,11 @@ class ChatDataExtractor:
                                 clean_twitter_text = clean_twitter_text[12:].strip()
                             # Remove emoji and clean up
                             clean_twitter_text = re.sub(r'[\ud83c-\udbff\udc00-\udfff]', '', clean_twitter_text).strip()
+                            # Normalize bullet formatting and convert inline bullets to separate lines
+                            clean_twitter_text = self._normalize_bullet_points(clean_twitter_text)
+                            clean_twitter_text = self._convert_inline_bullets_to_lines(clean_twitter_text)
+                            # Remove lingering leading punctuation
+                            clean_twitter_text = clean_twitter_text.lstrip(": ").strip()
                             if self._looks_like_prompt_template(clean_twitter_text):
                                 self.logger.log_debug("Skipping page-text candidate that matches prompt template")
                             else:
@@ -447,6 +465,59 @@ class ChatDataExtractor:
         except Exception as e:
             self.logger.log_debug(f"Bullet point normalization failed: {e}")
             return text
+    
+    def _ensure_chat_messages_loaded(self):
+        """Scroll through the chat container to make sure virtualized messages are rendered."""
+        try:
+            self.logger.log_info("📜 Ensuring full chat history is loaded")
+            
+            # Try to scroll inner chat containers (Flipside uses nested scroll views)
+            scroll_script = """
+                const selectors = [
+                    '[data-radix-scroll-area-viewport]',
+                    '[data-testid=\"chat-scroll-container\"]',
+                    '.overflow-y-auto',
+                    '.overflow-y-scroll',
+                    '.scrollbar-container',
+                    '.h-full.flex-1'
+                ];
+                let scrolled = 0;
+                const unique = new Set();
+                selectors.forEach(selector => {
+                    document.querySelectorAll(selector).forEach(el => unique.add(el));
+                });
+                unique.forEach(el => {
+                    try {
+                        el.scrollTop = el.scrollHeight;
+                        scrolled += 1;
+                    } catch (err) {
+                        /* ignore */
+                    }
+                });
+                window.scrollTo(0, document.body.scrollHeight);
+                return scrolled;
+            """
+            scrolled_count = self.driver.execute_script(scroll_script)
+            self.logger.log_info(f"📜 Scrolled {scrolled_count} chat containers")
+            
+            time.sleep(2)
+            
+            # Send End key to ensure any lazy loaders trigger
+            try:
+                body = self.driver.find_element(By.TAG_NAME, "body")
+                body.send_keys(Keys.END)
+                time.sleep(1)
+                body.send_keys(Keys.END)
+            except Exception as key_err:
+                self.logger.log_debug(f"Could not send END key to body: {key_err}")
+            
+            # Scroll once more after a brief pause to load remaining content
+            time.sleep(1)
+            self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            time.sleep(1)
+            
+        except Exception as e:
+            self.logger.log_warning(f"Failed to ensure chat messages are loaded: {e}")
     
     def _convert_inline_bullets_to_lines(self, text: str) -> str:
         """Convert inline bullet points to separate lines."""
