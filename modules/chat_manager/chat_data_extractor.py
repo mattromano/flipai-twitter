@@ -268,11 +268,16 @@ class ChatDataExtractor:
             self.logger.log_info(f"📸 Debug screenshot saved: {debug_screenshot}")
             
             # Look for the new Twitter text format with comprehensive selectors (excluding user messages)
+            # Support both TWITTER_TEXT_OUTPUT: (new format) and TWITTER_TEXT: (old format for backward compatibility)
             twitter_selectors = [
+                "//div[contains(text(), 'TWITTER_TEXT_OUTPUT:') and not(ancestor::*[@data-message-role='user'])]",
                 "//div[contains(text(), 'TWITTER_TEXT:') and not(ancestor::*[@data-message-role='user'])]",
                 "//div[contains(text(), 'Add a quick 260 character summary') and not(ancestor::*[@data-message-role='user'])]",
+                "//span[contains(text(), 'TWITTER_TEXT_OUTPUT:') and not(ancestor::*[@data-message-role='user'])]",
                 "//span[contains(text(), 'TWITTER_TEXT:') and not(ancestor::*[@data-message-role='user'])]",
+                "//p[contains(text(), 'TWITTER_TEXT_OUTPUT:') and not(ancestor::*[@data-message-role='user'])]",
                 "//p[contains(text(), 'TWITTER_TEXT:') and not(ancestor::*[@data-message-role='user'])]",
+                "//*[contains(text(), 'TWITTER_TEXT_OUTPUT:') and not(ancestor::*[@data-message-role='user'])]",
                 "//*[contains(text(), 'TWITTER_TEXT:') and not(ancestor::*[@data-message-role='user'])]",
                 "//*[contains(text(), 'Add a quick 260 character summary') and not(ancestor::*[@data-message-role='user'])]"
             ]
@@ -292,13 +297,30 @@ class ChatDataExtractor:
                             text_content = element.text.strip()
                             self.logger.log_debug(f"Element {i} text: {text_content[:100]}...")
                             
-                            # Extract content after "TWITTER_TEXT:"
-                            if "TWITTER_TEXT:" in text_content:
+                            # Extract content after "TWITTER_TEXT_OUTPUT:" (new format) or "TWITTER_TEXT:" (old format)
+                            if "TWITTER_TEXT_OUTPUT:" in text_content or "TWITTER_TEXT:" in text_content:
                                 lines = text_content.split('\n')
                                 twitter_content = ""
                                 
                                 for line in lines:
-                                    if "TWITTER_TEXT:" in line:
+                                    # Check for new format first, then fall back to old format
+                                    if "TWITTER_TEXT_OUTPUT:" in line:
+                                        # Use regex to extract content after "TWITTER_TEXT_OUTPUT:" and clean it up
+                                        twitter_match = re.search(r'TWITTER_TEXT_OUTPUT:\s*[^\w]*([^**\n]+)', line)
+                                        if twitter_match:
+                                            twitter_part = twitter_match.group(1).strip()
+                                            # Remove any remaining emoji/unicode characters
+                                            twitter_part = re.sub(r'[\ud83c-\udbff\udc00-\udfff]', '', twitter_part).strip()
+                                            if twitter_part:
+                                                twitter_content += twitter_part + "\n"
+                                        else:
+                                            # Fallback to simple split if regex fails
+                                            twitter_part = line.split("TWITTER_TEXT_OUTPUT:")[1].strip()
+                                            # Remove emoji and extra characters
+                                            twitter_part = re.sub(r'[\ud83c-\udbff\udc00-\udfff]', '', twitter_part).strip()
+                                            if twitter_part:
+                                                twitter_content += twitter_part + "\n"
+                                    elif "TWITTER_TEXT:" in line:
                                         # Use regex to extract content after "TWITTER_TEXT:" and clean it up
                                         # This handles emoji and unicode characters properly
                                         twitter_match = re.search(r'TWITTER_TEXT:\s*[^\w]*([^**\n]+)', line)
@@ -342,8 +364,10 @@ class ChatDataExtractor:
                                 if twitter_content.strip():
                                     # Clean up the final result
                                     clean_twitter_text = twitter_content.strip()
-                                    # Remove any remaining "TWITTER_TEXT:" prefix
-                                    if clean_twitter_text.startswith("TWITTER_TEXT:"):
+                                    # Remove any remaining "TWITTER_TEXT_OUTPUT:" or "TWITTER_TEXT:" prefix
+                                    if clean_twitter_text.startswith("TWITTER_TEXT_OUTPUT:"):
+                                        clean_twitter_text = clean_twitter_text[20:].strip()
+                                    elif clean_twitter_text.startswith("TWITTER_TEXT:"):
                                         clean_twitter_text = clean_twitter_text[12:].strip()
                                     # Remove emoji and clean up, but preserve line breaks for bullet points
                                     clean_twitter_text = re.sub(r'[\ud83c-\udbff\udc00-\udfff]', '', clean_twitter_text).strip()
@@ -414,18 +438,20 @@ class ChatDataExtractor:
                 # Look for patterns that might indicate Twitter content
                 lines = page_text.split('\n')
                 for i, line in enumerate(lines):
-                    if "TWITTER_TEXT:" in line or "TWITTER_TEXT" in line.upper():
+                    # Check for both new format (TWITTER_TEXT_OUTPUT:) and old format (TWITTER_TEXT:)
+                    if "TWITTER_TEXT_OUTPUT:" in line or "TWITTER_TEXT:" in line or "TWITTER_TEXT" in line.upper():
                         # Found the Twitter text line, collect following lines
                         twitter_content = ""
-                        # Start from the line with TWITTER_TEXT
+                        # Start from the line with TWITTER_TEXT_OUTPUT or TWITTER_TEXT
                         start_idx = i
                         # Look ahead up to 15 lines (more generous)
                         for j in range(start_idx, min(start_idx + 15, len(lines))):
                             raw_line = lines[j]
                             current_line = raw_line.strip()
                             
-                            # Skip the TWITTER_TEXT: line itself if it's just the marker
-                            if j == start_idx and current_line.upper().strip() == "TWITTER_TEXT:":
+                            # Skip the TWITTER_TEXT_OUTPUT: or TWITTER_TEXT: line itself if it's just the marker
+                            if j == start_idx and (current_line.upper().strip() == "TWITTER_TEXT_OUTPUT:" or 
+                                                   current_line.upper().strip() == "TWITTER_TEXT:"):
                                 continue
                             
                             if not current_line:
@@ -464,8 +490,12 @@ class ChatDataExtractor:
                         if twitter_content.strip():
                             # Clean up the final result
                             clean_twitter_text = twitter_content.strip()
-                            # Remove any remaining "TWITTER_TEXT:" or "TWITTER_TEXT" prefix (with or without colon)
-                            if clean_twitter_text.upper().startswith("TWITTER_TEXT:"):
+                            # Remove any remaining "TWITTER_TEXT_OUTPUT:" or "TWITTER_TEXT:" prefix (with or without colon)
+                            if clean_twitter_text.upper().startswith("TWITTER_TEXT_OUTPUT:"):
+                                clean_twitter_text = clean_twitter_text[20:].strip()
+                            elif clean_twitter_text.upper().startswith("TWITTER_TEXT_OUTPUT "):
+                                clean_twitter_text = clean_twitter_text[20:].strip()
+                            elif clean_twitter_text.upper().startswith("TWITTER_TEXT:"):
                                 clean_twitter_text = clean_twitter_text[12:].strip()
                             elif clean_twitter_text.upper().startswith("TWITTER_TEXT "):
                                 clean_twitter_text = clean_twitter_text[12:].strip()
