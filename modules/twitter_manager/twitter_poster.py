@@ -190,15 +190,17 @@ class TwitterPoster:
         self.logger.log_warning("⚠️ No artifact screenshot found")
         return None
     
-    def _wait_for_media_processing(self, media, max_wait_seconds: int = 30) -> bool:
+    def _wait_for_media_processing(self, media, max_wait_seconds: int = 60) -> bool:
         """Wait for media to finish processing before using it in a tweet."""
         try:
             # Check if media has processing_info attribute (indicates it needs processing)
             if not hasattr(media, 'processing_info') or media.processing_info is None:
-                # No processing info means it's likely ready, but add a small delay
+                # No processing info means it's likely ready, but add a delay
                 # to ensure Twitter has processed it (sometimes needed even for small images)
-                self.logger.log_info(f"📸 Media {media.media_id} appears ready, waiting 2s to ensure processing...")
-                time.sleep(2)
+                # For large images, wait longer
+                wait_time = 5  # Increased from 2 to 5 seconds
+                self.logger.log_info(f"📸 Media {media.media_id} appears ready, waiting {wait_time}s to ensure processing...")
+                time.sleep(wait_time)
                 return True
             
             processing_info = media.processing_info
@@ -266,16 +268,27 @@ class TwitterPoster:
             # Upload image if provided
             if image_path and os.path.exists(image_path):
                 try:
+                    # Check file size (Twitter has limits)
+                    file_size = os.path.getsize(image_path)
+                    file_size_mb = file_size / (1024 * 1024)
+                    self.logger.log_info(f"📸 Uploading image: {image_path} ({file_size_mb:.2f} MB)")
+                    
+                    if file_size_mb > 5:
+                        self.logger.log_warning(f"⚠️ Image file is large ({file_size_mb:.2f} MB), may take longer to process")
+                    
                     media = self.api.media_upload(image_path)
                     media_id = media.media_id
-                    self.logger.log_info(f"📸 Image uploaded: {image_path} (media_id: {media_id})")
+                    self.logger.log_info(f"📸 Image uploaded: {image_path} (media_id: {media_id}, type: {type(media_id)})")
                     
                     # Wait for media processing to complete before using it
                     if not self._wait_for_media_processing(media):
                         self.logger.log_warning(f"⚠️ Media processing failed or timed out, posting without image")
                         # Continue without the image rather than failing completely
                     else:
-                        media_ids.append(media_id)
+                        # Convert media_id to string for v2 API compatibility
+                        media_id_str = str(media_id)
+                        media_ids.append(media_id_str)
+                        self.logger.log_info(f"✅ Media ID {media_id_str} added to tweet (ready for posting)")
                         
                 except Exception as e:
                     status_code = getattr(e, 'status_code', None)
@@ -285,12 +298,20 @@ class TwitterPoster:
                         # Continue without the image rather than failing completely
                     else:
                         self.logger.log_warning(f"Failed to upload image: {e}, posting without image")
+            elif image_path:
+                self.logger.log_warning(f"⚠️ Image path provided but file does not exist: {image_path}")
             
             # Post the tweet
-            response = self.client.create_tweet(
-                text=text,
-                media_ids=media_ids if media_ids else None
-            )
+            # Important: Pass None (not empty list) when no media, and ensure media_ids are strings
+            tweet_params = {"text": text}
+            if media_ids:
+                # Convert all media IDs to strings and ensure they're valid
+                tweet_params["media_ids"] = [str(mid) for mid in media_ids]
+                self.logger.log_info(f"📤 Posting tweet with {len(media_ids)} media attachment(s)")
+            else:
+                self.logger.log_info(f"📤 Posting tweet without media")
+            
+            response = self.client.create_tweet(**tweet_params)
             
             tweet_id = response.data['id']
             self.logger.log_success(f"✅ Tweet posted: {tweet_id}")
@@ -317,6 +338,25 @@ class TwitterPoster:
                     self.logger.log_error(f"❌ Tweet posting failed (400 Bad Request): {error_message}")
                     self.logger.log_error(f"   This usually means:")
                     self.logger.log_error(f"   - Media IDs are invalid or not ready")
+                    self.logger.log_error(f"   - Media processing may not have completed")
+                    self.logger.log_error(f"   - Media IDs format may be incorrect for v2 API")
+                    # Try posting without media as fallback
+                    if media_ids:
+                        self.logger.log_info(f"🔄 Attempting to post without media as fallback...")
+                        try:
+                            response = self.client.create_tweet(text=text)
+                            tweet_id = response.data['id']
+                            self.logger.log_success(f"✅ Tweet posted without media (fallback): {tweet_id}")
+                            return {
+                                "success": True,
+                                "tweet_id": tweet_id,
+                                "text": text,
+                                "image_path": image_path,
+                                "media_ids": [],
+                                "warning": "Posted without media due to media upload error"
+                            }
+                        except Exception as fallback_error:
+                            self.logger.log_error(f"❌ Fallback posting also failed: {fallback_error}")
                     self.logger.log_error(f"   - Media processing wasn't completed before posting")
                     if api_messages:
                         self.logger.log_error(f"   - API Messages: {', '.join(map(str, api_messages))}")
