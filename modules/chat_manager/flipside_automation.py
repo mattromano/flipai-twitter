@@ -8,8 +8,10 @@ import os
 import time
 import re
 import logging
-from typing import Dict, Any, Optional
+import json
+from typing import Dict, Any, Optional, List
 from datetime import datetime
+from pathlib import Path
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -39,6 +41,10 @@ class FlipsideChatManager:
         # Setup directories
         os.makedirs("screenshots", exist_ok=True)
         os.makedirs("logs", exist_ok=True)
+        os.makedirs("prompts", exist_ok=True)
+        
+        # Recent prompts file path
+        self.recent_prompts_file = Path("prompts/recent_prompts.json")
     
     def initialize(self) -> bool:
         """Initialize the automation environment."""
@@ -200,70 +206,323 @@ class FlipsideChatManager:
             self.logger.log_error(f"Navigation failed: {e}")
             return False
     
+    def _load_recent_prompts(self) -> List[Dict[str, str]]:
+        """Load recent prompts from JSON file."""
+        try:
+            if self.recent_prompts_file.exists():
+                with open(self.recent_prompts_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    # Handle both old format (list of strings) and new format (list of objects)
+                    if data and isinstance(data[0], str):
+                        # Convert old format to new format
+                        return [{"condensed_prompt": p, "used_at": datetime.now().isoformat()} for p in data]
+                    return data
+            else:
+                # Create empty file
+                with open(self.recent_prompts_file, 'w', encoding='utf-8') as f:
+                    json.dump([], f, indent=2)
+                return []
+        except Exception as e:
+            self.logger.log_warning(f"Failed to load recent prompts: {e}")
+            return []
+    
+    def _save_recent_prompt(self, condensed_prompt: str) -> bool:
+        """Save a new condensed prompt to the recent prompts file, maintaining max 32 entries."""
+        try:
+            if not condensed_prompt or not condensed_prompt.strip():
+                self.logger.log_warning("Cannot save empty condensed prompt")
+                return False
+            
+            # Load existing prompts
+            recent_prompts = self._load_recent_prompts()
+            
+            # Remove any duplicate of this prompt (if it exists)
+            recent_prompts = [p for p in recent_prompts if p.get("condensed_prompt") != condensed_prompt]
+            
+            # Add new prompt with timestamp
+            new_entry = {
+                "condensed_prompt": condensed_prompt.strip(),
+                "used_at": datetime.now().isoformat()
+            }
+            recent_prompts.append(new_entry)
+            
+            # Keep only last 32 entries (FIFO)
+            if len(recent_prompts) > 32:
+                recent_prompts = recent_prompts[-32:]
+            
+            # Save to file
+            with open(self.recent_prompts_file, 'w', encoding='utf-8') as f:
+                json.dump(recent_prompts, f, indent=2, ensure_ascii=False)
+            
+            self.logger.log_success(f"✅ Saved condensed prompt: {condensed_prompt}")
+            return True
+        except Exception as e:
+            self.logger.log_error(f"Failed to save recent prompt: {e}")
+            return False
+    
+    def _format_recent_prompts_for_prompt(self) -> str:
+        """Format recent prompts as a string for injection into the prompt template."""
+        try:
+            recent_prompts = self._load_recent_prompts()
+            
+            # Extract just the condensed_prompt strings
+            prompt_strings = [p.get("condensed_prompt", "") for p in recent_prompts if p.get("condensed_prompt")]
+            
+            # Format as JSON array string
+            if prompt_strings:
+                formatted = json.dumps(prompt_strings, ensure_ascii=False)
+                return formatted
+            else:
+                return "[]"
+        except Exception as e:
+            self.logger.log_warning(f"Failed to format recent prompts: {e}")
+            return "[]"
+    
     def submit_prompt(self, prompt: str) -> bool:
         """Submit a prompt to the chat."""
         try:
-            # Append comprehensive prompt rules to every prompt
-            prompt_rules = """
+            # Load recent prompts and format for injection
+            recent_prompts_list = self._format_recent_prompts_for_prompt()
+            
+            # Build the new AI-generated prompt template
+            # Note: Using f-string only for recent_prompts_list, escaping other braces with {{}}
+            prompt_rules = f"""<role>
 
-You are a crypto analyst creating Twitter posts. Always respond with the below requirements in on single response:
+You are a crypto analyst at Flipside creating data-driven Twitter content that showcases insights and platform capabilities.
 
-HTML_CHART: 
+</role>
 
-[Complete HTML with Highcharts-1200x675px, clean styling]
+<recent_prompts>
 
-Data priority: 1) datascience_public.{chain}.{protocol_stats|chain_stats} 2) expert agents 3) custom SQL
+<!-- Python will inject list here -->
 
-Key fields: day_,n_users,n_quality_users etc.
+LAST_32_ANALYSES: {recent_prompts_list}
 
-Requirements:
+<!-- Format: ["1:ethereum:uniswap_growth", "4:arbitrum:dex_decline", ...] -->
 
-- COMPLETE ANALYSIS IN ONE RESPONSE, AND END WITH THE TWITTER TEXT SECTION AND THE **THIS_CONCLUDES_THE_ANALYSIS** MARKER
+</recent_prompts>
 
-- Always include charts with response
+<topic_selection>
 
-- Render HTML as artifact (NOT code block)
+Query data FIRST to determine which topic has the most interesting current findings.
 
-- Use high-contrast colors: ['#8B5CF6', '#EC4899', '#06B6D4', '#F59E0B', '#EF4444', '#10B981', '#6366F1', '#F97316']
+CHECK <recent_prompts> and AVOID repeating recent analyses.
 
-- Validate data before creating charts - skip chart if not valid
+Choose ONE topic that differs from recent analyses:
 
-- Make sure the original prompt is included in the analysis sub title in the artifact
+GROWTH_AND_MOMENTUM:
 
-- Try to only include visuals or small tables if necessary, and not too much text or very long tables.
+1. fastest_growing_contract: Labeled contract with largest tx/event volume growth (7d). Analyze traction drivers + user score segmentation
 
+2. emerging_protocol: Protocols crossing 10K+ weekly active users first time (30d). Analyze retention + quality scores  
 
+3. chain_momentum: Chain with largest % increase in quality users (14d). Compare to previous period + growth drivers
 
-MAKE SURE THE BOTTOM OF THE ANALYSIS FOLLOWS THIS STRUCTURE EXACTLY:
+DECLINE_AND_SHIFTS:
 
-TWITTER_TEXT: [Concise bullet format with bullet symbol, each line under 50 chars, total under 260]
+4. dex_volume_decline: DEXes with largest volume decline (90d). Analyze patterns, user segmentation, reasons
 
-Format: "[Topic]:
+5. protocol_churn: Protocols losing high-quality users (30d). Track user migration destinations
 
- - [Metric]: 
+6. nft_decline: Collections with sharpest volume drops (60d). Analyze holder behavior + market dynamics
 
- - [Metric]: 
+COMPARATIVE_ANALYSIS:
 
- - [Metric]: "
+7. chain_fee_comparison: Gas fee trends across major chains (30d). Correlate with activity + quality scores
 
-End with: **THIS_CONCLUDES_THE_ANALYSIS**
-____________________________________________________________________________________
+8. defi_protocol_battle: 2-3 competing protocols same category. Analyze user overlap + loyalty metrics
 
+9. l2_competition: Compare tx costs, speed, user growth across ETH L2s (90d). Include quality segmentation
 
+USER_BEHAVIOR:
 
-This is the prompt I want you to do the analysis on:
+10. whale_activity: High-value wallet movements (14d). Identify protocols/chains attracting/losing whales
 
+11. new_user_onboarding: Best new user retention protocols (day 7 → day 30). Analyze score progression
+
+12. cross_chain_migration: Users moving between chains (30d). Identify patterns + destinations
+
+PRODUCT_SHOWCASE:
+
+14. ai_agent_collaboration: Use multiple agents for complex analysis (SQL + domain + visualization)
+
+15. advanced_query_feature: Demonstrate new tables, optimizations, or capabilities
+
+</topic_selection>
+
+<data_sources priority="ordered">
+
+PRIMARY_TABLES:
+
+- datascience_public.{{chain}}.protocol_stats (day_, n_users, n_quality_users, txn_volume)
+
+- datascience_public.{{chain}}.chain_stats
+
+- datascience_public.{{chain}}.address_labels
+
+- datascience_public.{{chain}}.fact_event_logs
+
+SECONDARY:
+
+- Expert AI agents (for context)
+
+- Custom SQL queries (for specific metrics)
+
+</data_sources>
+
+<output_requirements>
+
+HTML_CHART:
+
+- format: artifact (NOT code block)
+
+- dimensions: 1200x675px
+
+- library: Highcharts
+
+- colors: ['#8B5CF6', '#EC4899', '#06B6D4', '#F59E0B', '#EF4444', '#10B981', '#6366F1', '#F97316']
+
+- style: clean, minimal
+
+- validation: skip if data invalid
+
+ANALYSIS_CONTENT:
+
+- subtitle: include selected topic + specific findings
+
+- focus: visuals + small tables only
+
+- minimize: text, long tables
+
+- include: original prompt/topic in subtitle
+
+TWITTER_TEXT:
+
+format: |
+
+  [Topic]:
+
+  • [Metric <50 chars]
+
+  • [Metric <50 chars]
+
+  • [Metric <50 chars]
+
+constraints:
+
+  - total_length: <260 chars
+
+  - bullet_symbol: •
+
+  - line_length: <50 chars
+
+CONDENSED_PROMPT_OUTPUT:
+
+format: "{{topic_id}}:{{primary_chain}}:{{subject}}"
+
+examples:
+
+  - "1:ethereum:uniswap_v3"
+
+  - "4:arbitrum:sushiswap_decline"
+
+  - "7:multi:gas_fee_comparison"
+
+  - "10:solana:whale_exodus"
+
+  - "13:multi:cross_chain_showcase"
+
+rules:
+
+  - topic_id: number 1-15 from topic list
+
+  - primary_chain: main chain analyzed (or "multi" for multi-chain)
+
+  - subject: 2-4 word description of specific protocol/metric analyzed
+
+  - max_length: 50 chars total
+
+  - use_underscore: for spaces
+
+</output_requirements>
+
+<critical_rules>
+
+MUST_DO:
+
+✓ Check <recent_prompts> and avoid repeating similar analyses
+
+✓ Query data FIRST to pick most interesting topic not in recent list
+
+✓ Deliver complete analysis in ONE response
+
+✓ Always include chart with analysis  
+
+✓ Always end with TWITTER_TEXT section
+
+✓ Always output CONDENSED_PROMPT_OUTPUT before final marker
+
+✓ Always end with: **THIS_CONCLUDES_THE_ANALYSIS**
+
+MUST_NOT:
+
+✗ Repeat topic_id + chain combination from last 10 analyses
+
+✗ Repeat exact same subject from last 32 analyses
+
+✗ Use code blocks for charts (use artifacts)
+
+✗ Skip chart validation
+
+✗ Exceed character limits in Twitter text
+
+</critical_rules>
+
+<execution_flow>
+
+1. CHECK_RECENT: Review <recent_prompts> to avoid repetition
+
+2. SCAN_DATA: Query multiple topics to find interesting patterns in current data
+
+3. SELECT_TOPIC: Choose topic with most notable findings (different from recent)
+
+4. DEEP_ANALYSIS: Execute full analysis with queries and calculations
+
+5. VISUALIZE: Create chart artifact with validated data
+
+6. SUMMARIZE: Format Twitter text within constraints
+
+7. OUTPUT_CONDENSED: Generate condensed prompt in specified format
+
+8. CONCLUDE: End with **THIS_CONCLUDES_THE_ANALYSIS**
+
+</execution_flow>
 """
-            full_prompt = f"{prompt_rules}{prompt}"
+            full_prompt = prompt_rules
             
             # Log the full prompt length and verify rules are included
-            self.logger.log_info(f"📝 Submitting prompt: {prompt[:50]}...")
+            self.logger.log_info(f"📝 Submitting AI-generated prompt template")
             self.logger.log_info(f"📏 Full prompt length: {len(full_prompt)} characters")
             self.logger.log_info(f"📏 Prompt rules length: {len(prompt_rules)} characters")
-            if "HTML_CHART" in full_prompt and "TWITTER_TEXT" in full_prompt:
-                self.logger.log_info("✅ Prompt rules verified in full_prompt")
+            
+            # Save prompt to file for debugging
+            try:
+                os.makedirs("logs", exist_ok=True)
+                prompt_debug_file = f"logs/prompt_sent_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+                with open(prompt_debug_file, 'w', encoding='utf-8') as f:
+                    f.write(full_prompt)
+                self.logger.log_info(f"📄 Full prompt saved to: {prompt_debug_file}")
+            except Exception as e:
+                self.logger.log_debug(f"Could not save prompt debug file: {e}")
+            
+            self.logger.log_debug(f"📋 Prompt preview (first 500 chars): {full_prompt[:500]}")
+            if "topic_selection" in full_prompt and "TWITTER_TEXT" in full_prompt and "CONDENSED_PROMPT_OUTPUT" in full_prompt:
+                self.logger.log_info("✅ Prompt template verified (contains topic_selection, TWITTER_TEXT, CONDENSED_PROMPT_OUTPUT)")
             else:
-                self.logger.log_warning("⚠️ Prompt rules NOT found in full_prompt!")
+                self.logger.log_warning("⚠️ Prompt template verification failed!")
+                self.logger.log_warning(f"   topic_selection: {'topic_selection' in full_prompt}")
+                self.logger.log_warning(f"   TWITTER_TEXT: {'TWITTER_TEXT' in full_prompt}")
+                self.logger.log_warning(f"   CONDENSED_PROMPT_OUTPUT: {'CONDENSED_PROMPT_OUTPUT' in full_prompt}")
             
             # Wait for page to fully load and chat interface to render
             self.logger.log_info("⏳ Waiting for chat interface to load...")
@@ -1052,7 +1311,8 @@ This is the prompt I want you to do the analysis on:
                     "artifacts": [],
                     "screenshots": extraction_result.get("screenshots", []),
                     "artifact_screenshot": artifact_screenshot_path,  # Preserve for fallback
-                    "response_metadata": {}
+                    "response_metadata": {},
+                    "condensed_prompt": extraction_result.get("condensed_prompt", "")
                 }
                 
                 # Add artifact screenshot to artifacts list if available
@@ -1076,6 +1336,14 @@ This is the prompt I want you to do the analysis on:
                     self.logger.log_warning("⚠️ Final Twitter text still matches prompt template, clearing value")
                     results["twitter_text"] = ""
                 
+                # Save condensed prompt if extracted
+                condensed_prompt = results.get("condensed_prompt", "")
+                if condensed_prompt and condensed_prompt.strip():
+                    self._save_recent_prompt(condensed_prompt)
+                    self.logger.log_info(f"✅ Saved condensed prompt to recent prompts: {condensed_prompt}")
+                else:
+                    self.logger.log_warning("⚠️ No condensed prompt found in extraction results")
+                
                 self.logger.log_success(f"✅ Data extracted using specialized extractor: {len(results['twitter_text'])} chars Twitter, {len(results['response_text'])} chars response")
                 return results
             
@@ -1092,7 +1360,8 @@ This is the prompt I want you to do the analysis on:
                 "twitter_text": twitter_text,
                 "artifacts": [],
                 "screenshots": [],
-                "response_metadata": {}
+                "response_metadata": {},
+                "condensed_prompt": ""
             }
             
             if not results["twitter_text"]:
