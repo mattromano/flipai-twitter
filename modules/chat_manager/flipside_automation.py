@@ -285,7 +285,7 @@ Crypto analyst at Flipside creating data-driven Twitter content.
 </role>
 
 <recent_prompts>
-LAST_32_ANALYSES: []
+LAST_32_ANALYSES: {recent_prompts}
 </recent_prompts>
 
 <topic_selection>
@@ -390,8 +390,10 @@ SCAN → DEEP DIVE → VALIDATE
 3. SELECT: Choose topic with strongest data, best narrative, different from recent
 4. ANALYZE: Deep dive queries with filters
 5. VALIDATE: Run post-query checklist on all results
-6. FINDINGS: Document what/why/metrics
-7. CHECKPOINT: Output analysis summary, then THIS_IS_THE_VALIDATION_CHECKPOINT
+6. FINDINGS: Document what/why/metrics - complete ALL analysis, queries, and documentation
+7. FINAL STEP - CHECKPOINT: ONLY after ALL analysis is 100% complete, output THIS_IS_THE_VALIDATION_CHECKPOINT as the ABSOLUTE LAST LINE (plain text, NOT a header/markdown heading)
+
+CRITICAL: THIS_IS_THE_VALIDATION_CHECKPOINT must be the very last thing you output. Do not output anything after it.
 </execution>
 
 <rules>
@@ -402,7 +404,9 @@ MUST:
 ✓ Select topic different from recent analyses
 ✓ Ensure ≥10 data points for timeseries
 ✓ Calculate % changes with non-zero denominators
-✓ End with THIS_IS_THE_VALIDATION_CHECKPOINT
+✓ Complete ALL analysis, queries, findings, and documentation BEFORE outputting checkpoint
+✓ Output THIS_IS_THE_VALIDATION_CHECKPOINT as the ABSOLUTE LAST LINE (plain text paragraph, NOT a header/markdown heading)
+✓ Do NOT output anything after THIS_IS_THE_VALIDATION_CHECKPOINT
 
 NEVER:
 ✗ Use data with future dates
@@ -411,6 +415,9 @@ NEVER:
 ✗ Repeat subject from last 32
 ✗ Skip validation checklist
 ✗ Accept bad data (re-query or change topics)
+✗ Format THIS_IS_THE_VALIDATION_CHECKPOINT as a header (h1, h2, h3, ##, ###, etc.)
+✗ Output THIS_IS_THE_VALIDATION_CHECKPOINT before completing all analysis
+✗ Output anything after THIS_IS_THE_VALIDATION_CHECKPOINT
 </rules>"""
 
     def _get_artifact_prompt_template(self) -> str:
@@ -426,24 +433,58 @@ Creating visualization:
 - Chain: [specific chain/protocol analyzed]
 - Colors: #8B5CF6, #EC4899, #06B6D4, #F59E0B, #EF4444, #10B981, #6366F1, #F97316
 - Size: 1200x675px
+- CRITICAL VALUES FROM QUERY: [list 5-7 specific data points with exact dates and values that MUST appear in artifact]
 
 PRE-GENERATION CHECKLIST:
 ☐ Data validated: [N] rows, dates [start] to [end], all ≤ today
 ☐ No NULLs/gaps/zeros/future dates in critical fields
 ☐ ≥10 data points for timeseries
 ☐ Declaration written with exact specifications
+☐ Critical values from query listed above (these will be verified against artifact output)
 
-POST-GENERATION VERIFICATION:
-☐ Point count matches query ([N] expected, [N] shown?)
-☐ Correct chain/protocol displayed
-☐ Actual dates on x-axis (not Prior Period)
-☐ Values match query results (spot-check 3-5 points)
+AFTER generate_artifact() RETURNS:
+1. MANDATORY: Examine the artifact HTML/data that was returned in the function results
+2. Extract and verify:
+   - Look for the data table/array embedded in the artifact
+   - Check if dates match your query results
+   - Verify specific values for critical dates (check at least 5 points)
+   - Look for any summary text and verify numbers match your query
+   - Confirm title/protocol name is correct
 
-IF VERIFICATION FAILS: STOP. Regenerate from scratch (never use update_artifact).
+POST-GENERATION VERIFICATION CHECKLIST (YOU MUST COMPLETE):
+☐ Artifact HTML examined: [Yes/No]
+☐ Data table/array found in artifact: [Yes/No]
+☐ Critical value check 1: [date] should be [value] → artifact shows [actual value] → [PASS/FAIL]
+☐ Critical value check 2: [date] should be [value] → artifact shows [actual value] → [PASS/FAIL]
+☐ Critical value check 3: [date] should be [value] → artifact shows [actual value] → [PASS/FAIL]
+☐ Critical value check 4: [date] should be [value] → artifact shows [actual value] → [PASS/FAIL]
+☐ Critical value check 5: [date] should be [value] → artifact shows [actual value] → [PASS/FAIL]
+☐ Date range matches: Expected [start] to [end] → artifact shows [actual range] → [PASS/FAIL]
+☐ Point count matches: Expected [N] → artifact has [actual N] → [PASS/FAIL]
+☐ Protocol/chain name correct: Expected [name] → artifact shows [actual name] → [PASS/FAIL]
+☐ Summary text numbers verified: [list key numbers and whether they match]
+
+VERIFICATION DECISION:
+If ANY checks FAIL:
+- State clearly what failed
+- Regenerate artifact from scratch with corrected instructions
+- Re-verify all checks
+- Repeat until ALL checks PASS
+
+If ALL checks PASS:
+- State: "All verification checks passed"
+- Proceed to output requirements
+
+NEVER:
+✗ Skip examining the artifact HTML/data
+✗ Skip any verification check
+✗ Proceed with failed checks
+✗ Use update_artifact (always regenerate from scratch)
+✗ Claim verification passed without showing actual vs expected values
 </artifact_protocol>
 
 <output_requirements>
-END response with these THREE elements in exact order (plain text, NO code blocks):
+ONLY after ALL verification checks pass, END response with these THREE elements in exact order (plain text, NO code blocks):
 
 1. TWITTER_TEXT_OUTPUT:
 [Topic]:
@@ -460,64 +501,56 @@ END response with these THREE elements in exact order (plain text, NO code block
 </output_requirements>
 
 <execution>
-1. Write pre-artifact declaration with specifications
+1. Write pre-artifact declaration with specifications AND critical values from query
 2. Call generate_artifact() ONCE
-3. Verify immediately using checklist
-4. If fails: STOP and regenerate
-5. If passes: Output TWITTER_TEXT_OUTPUT (plain text)
-6. Output CONDENSED_PROMPT_OUTPUT (plain text)
-7. Output THIS_CONCLUDES_THE_ANALYSIS
+3. EXAMINE the returned artifact HTML/data structure
+4. EXTRACT actual values from the artifact data
+5. COMPARE actual vs expected for each critical value check
+6. DOCUMENT each check as PASS or FAIL with actual values shown
+7. If ANY check fails: Regenerate from scratch and repeat verification
+8. If ALL checks pass: State "All verification checks passed"
+9. ONLY then: Output TWITTER_TEXT_OUTPUT (plain text)
+10. Output CONDENSED_PROMPT_OUTPUT (plain text)
+11. Output THIS_CONCLUDES_THE_ANALYSIS
 </execution>
 
 <rules>
 MUST:
-✓ Write declaration before calling generate_artifact()
-✓ Call generate_artifact() only once
-✓ Verify immediately with checklist
-✓ Regenerate if verification fails
-✓ Output all three elements in exact order
-✓ Use plain text (no code blocks)
+✓ List critical values from your query before generating
+✓ Examine the artifact return data after generation
+✓ Extract actual values from artifact and compare to expected
+✓ Complete ALL verification checks with actual values shown
+✓ Regenerate if any check fails (never use update_artifact)
+✓ Show your verification work (expected vs actual for each check)
+✓ Only proceed to final outputs after stating all checks passed
 
 NEVER:
-✗ Call generate_artifact() without declaration
-✗ Skip verification checklist
-✗ Use update_artifact() for data fixes (regenerate instead)
-✗ Use code blocks for TWITTER_TEXT_OUTPUT or CONDENSED_PROMPT_OUTPUT
-✗ Proceed when verification fails
-✗ End without all three outputs
-</rules>"""
+✗ Generate artifact without listing critical values first
+✗ Skip examining the artifact data
+✗ Skip any verification check in the checklist
+✗ Proceed with failed verification checks
+✗ Claim checks passed without showing actual vs expected comparison
+✗ Use update_artifact for fixes (always regenerate)
+✗ Output final three elements before verification passes
+</rules>
+"""
 
     def _inject_recent_prompts_into_template(self, template: str, recent_prompts_list: str) -> str:
         """Inject recent prompts into a custom template.
         
-        Looks for LAST_32_ANALYSES: [] or <recent_prompts> section and replaces
-        the empty array with the formatted recent prompts.
+        Replaces {recent_prompts} placeholder with the formatted recent prompts JSON array.
         """
         try:
-            # Pattern 1: Replace LAST_32_ANALYSES: [] with LAST_32_ANALYSES: {recent_prompts_list}
-            if "LAST_32_ANALYSES: []" in template:
-                template = template.replace("LAST_32_ANALYSES: []", f"LAST_32_ANALYSES: {recent_prompts_list}")
-                self.logger.log_info("✅ Injected recent_prompts into LAST_32_ANALYSES placeholder")
-            # Pattern 2: Replace LAST_32_ANALYSES: [] with recent_prompts_list (if on separate line)
-            elif re.search(r'LAST_32_ANALYSES:\s*\[\]', template):
-                template = re.sub(r'LAST_32_ANALYSES:\s*\[\]', f'LAST_32_ANALYSES: {recent_prompts_list}', template)
-                self.logger.log_info("✅ Injected recent_prompts into LAST_32_ANALYSES (regex match)")
-            # Pattern 3: If <recent_prompts> section exists but is empty, inject there
-            elif "<recent_prompts>" in template and "LAST_32_ANALYSES:" in template:
-                # Find the line with LAST_32_ANALYSES and replace empty array
-                lines = template.split('\n')
-                for i, line in enumerate(lines):
-                    if "LAST_32_ANALYSES:" in line and "[]" in line:
-                        lines[i] = line.replace("[]", recent_prompts_list)
-                        template = '\n'.join(lines)
-                        self.logger.log_info("✅ Injected recent_prompts into LAST_32_ANALYSES line")
-                        break
+            # Replace {recent_prompts} placeholder with actual recent prompts list
+            if "{recent_prompts}" in template:
+                template = template.replace("{recent_prompts}", recent_prompts_list)
+                self.logger.log_info(f"✅ Injected recent_prompts into template: {len(recent_prompts_list)} chars")
+                return template
             else:
-                self.logger.log_warning("⚠️ No recent_prompts placeholder found in custom template")
-            
-            return template
+                self.logger.log_warning("⚠️ No {recent_prompts} placeholder found in template")
+                return template
         except Exception as e:
-            self.logger.log_warning(f"Failed to inject recent prompts: {e}")
+            self.logger.log_error(f"❌ Failed to inject recent prompts: {e}")
             return template
     
     def submit_prompt(self, prompt: str = "", phase: int = 1) -> bool:
@@ -530,12 +563,15 @@ NEVER:
         try:
             # Load recent prompts and format for injection
             recent_prompts_list = self._format_recent_prompts_for_prompt()
+            self.logger.log_debug(f"📋 Recent prompts formatted: {recent_prompts_list[:200]}..." if len(recent_prompts_list) > 200 else f"📋 Recent prompts formatted: {recent_prompts_list}")
             
             # Determine which template to use
             if phase == 1:
                 # Phase 1: Analysis prompt with recent_prompts injection
                 template = self._get_analysis_prompt_template()
+                self.logger.log_debug(f"📋 Template before injection contains '{{recent_prompts}}': {'{recent_prompts}' in template}")
                 full_prompt = self._inject_recent_prompts_into_template(template, recent_prompts_list)
+                self.logger.log_debug(f"📋 Template after injection contains '{{recent_prompts}}': {'{recent_prompts}' in full_prompt}")
                 self.logger.log_info(f"📝 Using Phase 1 (Analysis) prompt template with recent_prompts injection")
             elif phase == 2:
                 # Phase 2: Artifact generation prompt (no recent_prompts needed)
@@ -560,13 +596,30 @@ NEVER:
                 self.logger.log_debug(f"Could not save prompt debug file: {e}")
             
             self.logger.log_debug(f"📋 Prompt preview (first 500 chars): {full_prompt[:500]}")
-            if "topic_selection" in full_prompt and "TWITTER_TEXT" in full_prompt and "CONDENSED_PROMPT_OUTPUT" in full_prompt:
-                self.logger.log_info("✅ Prompt template verified (contains topic_selection, TWITTER_TEXT, CONDENSED_PROMPT_OUTPUT)")
-            else:
-                self.logger.log_warning("⚠️ Prompt template verification failed!")
-                self.logger.log_warning(f"   topic_selection: {'topic_selection' in full_prompt}")
-                self.logger.log_warning(f"   TWITTER_TEXT: {'TWITTER_TEXT' in full_prompt}")
-                self.logger.log_warning(f"   CONDENSED_PROMPT_OUTPUT: {'CONDENSED_PROMPT_OUTPUT' in full_prompt}")
+            
+            # Phase-specific verification
+            if phase == 1:
+                # Phase 1 should have topic_selection and validation checkpoint
+                if "topic_selection" in full_prompt and "THIS_IS_THE_VALIDATION_CHECKPOINT" in full_prompt:
+                    self.logger.log_info("✅ Phase 1 prompt template verified (contains topic_selection, THIS_IS_THE_VALIDATION_CHECKPOINT)")
+                else:
+                    self.logger.log_warning("⚠️ Phase 1 prompt template verification failed!")
+                    self.logger.log_warning(f"   topic_selection: {'topic_selection' in full_prompt}")
+                    self.logger.log_warning(f"   THIS_IS_THE_VALIDATION_CHECKPOINT: {'THIS_IS_THE_VALIDATION_CHECKPOINT' in full_prompt}")
+                # Verify recent prompts were injected
+                if "{recent_prompts}" in full_prompt:
+                    self.logger.log_warning("⚠️ Recent prompts were NOT injected - still contains {recent_prompts} placeholder!")
+                elif "LAST_32_ANALYSES:" in full_prompt and recent_prompts_list != "[]":
+                    self.logger.log_info(f"✅ Recent prompts verified: {recent_prompts_list[:100]}...")
+            elif phase == 2:
+                # Phase 2 should have artifact protocol and output requirements
+                if "TWITTER_TEXT_OUTPUT" in full_prompt and "CONDENSED_PROMPT_OUTPUT" in full_prompt and "THIS_CONCLUDES_THE_ANALYSIS" in full_prompt:
+                    self.logger.log_info("✅ Phase 2 prompt template verified (contains TWITTER_TEXT_OUTPUT, CONDENSED_PROMPT_OUTPUT, THIS_CONCLUDES_THE_ANALYSIS)")
+                else:
+                    self.logger.log_warning("⚠️ Phase 2 prompt template verification failed!")
+                    self.logger.log_warning(f"   TWITTER_TEXT_OUTPUT: {'TWITTER_TEXT_OUTPUT' in full_prompt}")
+                    self.logger.log_warning(f"   CONDENSED_PROMPT_OUTPUT: {'CONDENSED_PROMPT_OUTPUT' in full_prompt}")
+                    self.logger.log_warning(f"   THIS_CONCLUDES_THE_ANALYSIS: {'THIS_CONCLUDES_THE_ANALYSIS' in full_prompt}")
             
             # Wait for page to fully load and chat interface to render
             self.logger.log_info("⏳ Waiting for chat interface to load...")
@@ -1318,11 +1371,16 @@ NEVER:
             while time.time() - start_time < timeout:
                 try:
                     # Look for the validation checkpoint marker (excluding user messages)
+                    # Include headers (h1, h2, h3) in case AI outputs it as a header
                     checkpoint_selectors = [
                         "//div[contains(text(), 'THIS_IS_THE_VALIDATION_CHECKPOINT') and not(ancestor::*[@data-message-role='user'])]",
                         "//div[contains(text(), '**THIS_IS_THE_VALIDATION_CHECKPOINT**') and not(ancestor::*[@data-message-role='user'])]",
                         "//span[contains(text(), 'THIS_IS_THE_VALIDATION_CHECKPOINT') and not(ancestor::*[@data-message-role='user'])]",
-                        "//p[contains(text(), 'THIS_IS_THE_VALIDATION_CHECKPOINT') and not(ancestor::*[@data-message-role='user'])]"
+                        "//p[contains(text(), 'THIS_IS_THE_VALIDATION_CHECKPOINT') and not(ancestor::*[@data-message-role='user'])]",
+                        "//h1[contains(text(), 'THIS_IS_THE_VALIDATION_CHECKPOINT') and not(ancestor::*[@data-message-role='user'])]",
+                        "//h2[contains(text(), 'THIS_IS_THE_VALIDATION_CHECKPOINT') and not(ancestor::*[@data-message-role='user'])]",
+                        "//h3[contains(text(), 'THIS_IS_THE_VALIDATION_CHECKPOINT') and not(ancestor::*[@data-message-role='user'])]",
+                        "//h4[contains(text(), 'THIS_IS_THE_VALIDATION_CHECKPOINT') and not(ancestor::*[@data-message-role='user'])]"
                     ]
                     
                     for selector in checkpoint_selectors:
