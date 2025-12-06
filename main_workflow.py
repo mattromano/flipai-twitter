@@ -278,12 +278,12 @@ Examples:
         """
     )
     
-    # Prompt selection arguments
-    prompt_group = parser.add_mutually_exclusive_group()
+    # Prompt selection arguments (optional - AI generates its own if not provided)
+    prompt_group = parser.add_mutually_exclusive_group(required=False)
     prompt_group.add_argument("--prompt", "-p",
-                             help="Analysis prompt")
+                             help="Analysis prompt (ignored - AI generates its own)")
     prompt_group.add_argument("--random-prompt", action="store_true",
-                             help="Select a random prompt from the prompts file")
+                             help="Select a random prompt (ignored - AI generates its own)")
     
     parser.add_argument("--category", type=str,
                        help="Filter prompts by category (use with --random-prompt)")
@@ -326,37 +326,24 @@ Examples:
         print(f"Available Difficulties: {', '.join(stats['difficulty_levels_available'])}")
         sys.exit(0)
     
-    # Validate that either prompt or random-prompt is provided
-    if not args.prompt and not args.random_prompt:
-        parser.error("Either --prompt or --random-prompt must be provided")
-    
-    # Determine the prompt to use
+    # With the new AI-generated prompt system, the prompt parameter is optional
+    # The AI will generate its own analysis topic based on current data
     workflow = MainWorkflow()
-    prompt_to_use = None
-    selected_prompt_info = None
+    prompt_to_use = ""  # Empty string - AI generates its own prompt
     
+    # Legacy support: if prompt or random-prompt is provided, log it but don't use it
     if args.prompt:
-        prompt_to_use = args.prompt
-        print("📝 Using provided prompt")
+        print("📝 Note: Prompt parameter provided but ignored - AI generates its own analysis topic")
+        print(f"   (Provided prompt: {args.prompt[:50]}...)")
     elif args.random_prompt:
-        selected_prompt_info = workflow.prompt_selector.select_and_mark_prompt(
-            category_filter=args.category,
-            difficulty_filter=args.difficulty
-        )
-        
-        if selected_prompt_info:
-            prompt_to_use = selected_prompt_info["prompt"]
-            print(f"🎯 Selected random prompt (ID: {selected_prompt_info['id']})")
-            print(f"📂 Category: {selected_prompt_info['category']}")
-            print(f"📊 Difficulty: {selected_prompt_info['difficulty']}")
-        else:
-            print("❌ No available prompts found with the specified criteria")
-            sys.exit(1)
+        print("📝 Note: Random prompt selection ignored - AI generates its own analysis topic")
+        if args.category or args.difficulty:
+            print(f"   (Filters provided: category={args.category}, difficulty={args.difficulty})")
     
     # Show what we're running
     print("🚀 Flipside AI + Twitter Automation")
     print("=" * 50)
-    print(f"📝 Prompt: {prompt_to_use[:100]}{'...' if len(prompt_to_use) > 100 else ''}")
+    print("🤖 Mode: AI-Generated Prompt (AI selects analysis topic based on current data)")
     print(f"⏱️  Timeout: {args.timeout} seconds")
     
     if args.analysis_only:
@@ -382,9 +369,10 @@ Examples:
                 test_mode=args.test_mode
             )
         
-        # Log the selected prompt info if using random selection
-        if selected_prompt_info:
-            workflow.logger.log_info(f"Used prompt ID {selected_prompt_info['id']}: {selected_prompt_info['category']} - {selected_prompt_info['difficulty']}")
+        # Log that AI-generated prompt system was used
+        condensed_prompt = result.get("analysis_result", {}).get("data", {}).get("condensed_prompt", "")
+        if condensed_prompt:
+            workflow.logger.log_info(f"AI-generated condensed prompt: {condensed_prompt}")
         
         # Exit with appropriate code
         sys.exit(0 if result.get("success", False) else 1)

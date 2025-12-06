@@ -1,4 +1,4 @@
-name: Flipside AI + Twitter Automation
+name: Flipside AI + Twitter Automation (AI-Generated Prompts)
 
 on:
   schedule:
@@ -6,32 +6,8 @@ on:
     - cron: '0 9 * * *'
     - cron: '0 18 * * *'
   workflow_dispatch: # Allow manual trigger
-    inputs:
-      prompt_type:
-        description: 'Prompt selection type'
-        required: false
-        default: 'random'
-        type: choice
-        options:
-          - random
-          - custom
-      custom_prompt:
-        description: 'Custom analysis prompt (only used if prompt_type is custom)'
-        required: false
-        default: 'Give me a comprehensive analysis of the current DeFi landscape, focusing on TVL trends and major protocol performance'
-      category_filter:
-        description: 'Filter prompts by category (only used if prompt_type is random)'
-        required: false
-      difficulty_filter:
-        description: 'Filter prompts by difficulty (only used if prompt_type is random)'
-        required: false
-        default: 'easy'
-        type: choice
-        options:
-          - easy
-          - mild_intermediate
-          - intermediate
-          - advanced
+    # Note: With AI-generated prompt system, the AI automatically selects analysis topics
+    # No input parameters needed - the AI will choose based on current data and avoid recent analyses
 
 jobs:
   analyze:
@@ -83,30 +59,13 @@ jobs:
       run: |
         source venv/bin/activate
         
-        # Determine prompt selection method
-        PROMPT_TYPE="${{ github.event.inputs.prompt_type || 'random' }}"
-        
-        if [ "$PROMPT_TYPE" = "custom" ]; then
-          # Use custom prompt
-          CUSTOM_PROMPT="${{ github.event.inputs.custom_prompt || 'Give me a comprehensive analysis of the current DeFi landscape, focusing on TVL trends and major protocol performance' }}"
-          python main_workflow.py --prompt "$CUSTOM_PROMPT"
-        else
-          # Use random prompt selection
-          CATEGORY_FILTER="${{ github.event.inputs.category_filter }}"
-          DIFFICULTY_FILTER="${{ github.event.inputs.difficulty_filter || 'easy' }}"
-          
-          # Build command with filters
-          CMD="python main_workflow.py --random-prompt"
-          if [ -n "$CATEGORY_FILTER" ]; then
-            CMD="$CMD --category '$CATEGORY_FILTER'"
-          fi
-          if [ -n "$DIFFICULTY_FILTER" ]; then
-            CMD="$CMD --difficulty $DIFFICULTY_FILTER"
-          fi
-          
-          # Execute the command
-          eval $CMD
-        fi
+        # With AI-generated prompt system, no prompt parameter needed
+        # The AI will automatically select an analysis topic based on current data
+        # and avoid repeating recent analyses (tracks last 32 prompts)
+        echo "🤖 Running with AI-generated prompt system..."
+        echo "   The AI will select an analysis topic automatically"
+        echo "   Recent analyses are tracked to avoid repetition"
+        python main_workflow.py
         
     - name: Upload screenshots as artifacts
       uses: actions/upload-artifact@v4
@@ -145,30 +104,23 @@ jobs:
         echo "**Timestamp:** $(date)" >> $GITHUB_STEP_SUMMARY
         echo "**Trigger:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
         
-        # Show prompt selection details
-        PROMPT_TYPE="${{ github.event.inputs.prompt_type || 'random' }}"
-        echo "**Prompt Selection:** $PROMPT_TYPE" >> $GITHUB_STEP_SUMMARY
+        # Show AI-generated prompt details
+        echo "**Prompt System:** AI-Generated (AI selects topic automatically)" >> $GITHUB_STEP_SUMMARY
         
-        if [ "$PROMPT_TYPE" = "custom" ]; then
-          CUSTOM_PROMPT="${{ github.event.inputs.custom_prompt || 'Default prompt' }}"
-          echo "**Custom Prompt:** $CUSTOM_PROMPT" >> $GITHUB_STEP_SUMMARY
-        else
-          CATEGORY_FILTER="${{ github.event.inputs.category_filter }}"
-          DIFFICULTY_FILTER="${{ github.event.inputs.difficulty_filter || 'easy' }}"
-          if [ -n "$CATEGORY_FILTER" ]; then
-            echo "**Category Filter:** $CATEGORY_FILTER" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo "**Difficulty Filter:** $DIFFICULTY_FILTER" >> $GITHUB_STEP_SUMMARY
-          
-          # Try to get the selected prompt info from logs
-          if [ -d "logs" ]; then
-            LATEST_LOG=$(find logs/ -name "*.log" -type f -exec ls -t {} + | head -1)
-            if [ -n "$LATEST_LOG" ]; then
-              SELECTED_PROMPT=$(grep "Selected random prompt" "$LATEST_LOG" | tail -1 || echo "")
-              if [ -n "$SELECTED_PROMPT" ]; then
-                echo "**Selected Prompt:** $SELECTED_PROMPT" >> $GITHUB_STEP_SUMMARY
-              fi
+        # Try to get the AI-generated condensed prompt from logs
+        if [ -d "logs" ]; then
+          LATEST_ANALYSIS=$(find logs/ -name "analysis_*.json" -type f -exec ls -t {} + | head -1)
+          if [ -n "$LATEST_ANALYSIS" ]; then
+            CONDENSED_PROMPT=$(grep -o '"condensed_prompt": "[^"]*"' "$LATEST_ANALYSIS" | cut -d'"' -f4 || echo "")
+            if [ -n "$CONDENSED_PROMPT" ]; then
+              echo "**AI-Generated Topic:** \`$CONDENSED_PROMPT\`" >> $GITHUB_STEP_SUMMARY
             fi
+          fi
+          
+          # Also check recent prompts file
+          if [ -f "prompts/recent_prompts.json" ]; then
+            RECENT_COUNT=$(jq 'length' prompts/recent_prompts.json 2>/dev/null || echo "0")
+            echo "**Recent Analyses Tracked:** $RECENT_COUNT" >> $GITHUB_STEP_SUMMARY
           fi
         fi
         echo "" >> $GITHUB_STEP_SUMMARY

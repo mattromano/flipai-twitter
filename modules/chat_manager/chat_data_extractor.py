@@ -92,7 +92,8 @@ class ChatDataExtractor:
             "twitter_text": "",
             "response_text": "",
             "artifact_screenshot": "",
-            "screenshots": []
+            "screenshots": [],
+            "condensed_prompt": ""
         }
         
         try:
@@ -129,6 +130,10 @@ class ChatDataExtractor:
             # Step 5: Extract full response text
             response_text = self._extract_response_text()
             results["response_text"] = response_text
+            
+            # Step 5.5: Extract condensed prompt output
+            condensed_prompt = self._extract_condensed_prompt()
+            results["condensed_prompt"] = condensed_prompt
             
             # Step 6: Capture artifact screenshot (this will open new window)
             artifact_result = self._capture_artifact_screenshot()
@@ -263,11 +268,16 @@ class ChatDataExtractor:
             self.logger.log_info(f"📸 Debug screenshot saved: {debug_screenshot}")
             
             # Look for the new Twitter text format with comprehensive selectors (excluding user messages)
+            # Support both TWITTER_TEXT_OUTPUT: (new format) and TWITTER_TEXT: (old format for backward compatibility)
             twitter_selectors = [
+                "//div[contains(text(), 'TWITTER_TEXT_OUTPUT:') and not(ancestor::*[@data-message-role='user'])]",
                 "//div[contains(text(), 'TWITTER_TEXT:') and not(ancestor::*[@data-message-role='user'])]",
                 "//div[contains(text(), 'Add a quick 260 character summary') and not(ancestor::*[@data-message-role='user'])]",
+                "//span[contains(text(), 'TWITTER_TEXT_OUTPUT:') and not(ancestor::*[@data-message-role='user'])]",
                 "//span[contains(text(), 'TWITTER_TEXT:') and not(ancestor::*[@data-message-role='user'])]",
+                "//p[contains(text(), 'TWITTER_TEXT_OUTPUT:') and not(ancestor::*[@data-message-role='user'])]",
                 "//p[contains(text(), 'TWITTER_TEXT:') and not(ancestor::*[@data-message-role='user'])]",
+                "//*[contains(text(), 'TWITTER_TEXT_OUTPUT:') and not(ancestor::*[@data-message-role='user'])]",
                 "//*[contains(text(), 'TWITTER_TEXT:') and not(ancestor::*[@data-message-role='user'])]",
                 "//*[contains(text(), 'Add a quick 260 character summary') and not(ancestor::*[@data-message-role='user'])]"
             ]
@@ -287,13 +297,30 @@ class ChatDataExtractor:
                             text_content = element.text.strip()
                             self.logger.log_debug(f"Element {i} text: {text_content[:100]}...")
                             
-                            # Extract content after "TWITTER_TEXT:"
-                            if "TWITTER_TEXT:" in text_content:
+                            # Extract content after "TWITTER_TEXT_OUTPUT:" (new format) or "TWITTER_TEXT:" (old format)
+                            if "TWITTER_TEXT_OUTPUT:" in text_content or "TWITTER_TEXT:" in text_content:
                                 lines = text_content.split('\n')
                                 twitter_content = ""
                                 
                                 for line in lines:
-                                    if "TWITTER_TEXT:" in line:
+                                    # Check for new format first, then fall back to old format
+                                    if "TWITTER_TEXT_OUTPUT:" in line:
+                                        # Use regex to extract content after "TWITTER_TEXT_OUTPUT:" and clean it up
+                                        twitter_match = re.search(r'TWITTER_TEXT_OUTPUT:\s*[^\w]*([^**\n]+)', line)
+                                        if twitter_match:
+                                            twitter_part = twitter_match.group(1).strip()
+                                            # Remove any remaining emoji/unicode characters
+                                            twitter_part = re.sub(r'[\ud83c-\udbff\udc00-\udfff]', '', twitter_part).strip()
+                                            if twitter_part:
+                                                twitter_content += twitter_part + "\n"
+                                        else:
+                                            # Fallback to simple split if regex fails
+                                            twitter_part = line.split("TWITTER_TEXT_OUTPUT:")[1].strip()
+                                            # Remove emoji and extra characters
+                                            twitter_part = re.sub(r'[\ud83c-\udbff\udc00-\udfff]', '', twitter_part).strip()
+                                            if twitter_part:
+                                                twitter_content += twitter_part + "\n"
+                                    elif "TWITTER_TEXT:" in line:
                                         # Use regex to extract content after "TWITTER_TEXT:" and clean it up
                                         # This handles emoji and unicode characters properly
                                         twitter_match = re.search(r'TWITTER_TEXT:\s*[^\w]*([^**\n]+)', line)
@@ -314,6 +341,7 @@ class ChatDataExtractor:
                                         # Continue collecting until we hit a section break
                                         if (line.startswith("**THIS_CONCLUDES_THE_ANALYSIS**") or
                                             line.startswith("THIS_CONCLUDES_THE_ANALYSIS") or
+                                            line.startswith("CONDENSED_PROMPT_OUTPUT") or
                                             line.startswith("HTML_CHART") or 
                                             line.startswith("**HTML_CHART**") or
                                             line.startswith("View Report") or
@@ -325,13 +353,21 @@ class ChatDataExtractor:
                                             if line.strip().startswith(("•", "-", "*", "◦", "▪", "▫")):
                                                 twitter_content += line.strip() + "\n"
                                             else:
-                                                twitter_content += line.strip() + " "
+                                                # Also collect non-bullet lines that look like content (not template markers)
+                                                # Skip lines that are clearly template placeholders
+                                                if not any(template_marker in line.lower() for template_marker in [
+                                                    "format:", "constraints:", "total_length:", "bullet_symbol:",
+                                                    "line_length:", "[topic]:", "[metric <", "example"
+                                                ]):
+                                                    twitter_content += line.strip() + " "
                                 
                                 if twitter_content.strip():
                                     # Clean up the final result
                                     clean_twitter_text = twitter_content.strip()
-                                    # Remove any remaining "TWITTER_TEXT:" prefix
-                                    if clean_twitter_text.startswith("TWITTER_TEXT:"):
+                                    # Remove any remaining "TWITTER_TEXT_OUTPUT:" or "TWITTER_TEXT:" prefix
+                                    if clean_twitter_text.startswith("TWITTER_TEXT_OUTPUT:"):
+                                        clean_twitter_text = clean_twitter_text[20:].strip()
+                                    elif clean_twitter_text.startswith("TWITTER_TEXT:"):
                                         clean_twitter_text = clean_twitter_text[12:].strip()
                                     # Remove emoji and clean up, but preserve line breaks for bullet points
                                     clean_twitter_text = re.sub(r'[\ud83c-\udbff\udc00-\udfff]', '', clean_twitter_text).strip()
@@ -339,8 +375,20 @@ class ChatDataExtractor:
                                     clean_twitter_text = self._normalize_bullet_points(clean_twitter_text)
                                     # Convert inline bullet points to separate lines
                                     clean_twitter_text = self._convert_inline_bullets_to_lines(clean_twitter_text)
+                                    # Check if it's a placeholder, but be more lenient
                                     if is_placeholder_twitter_text(clean_twitter_text):
-                                        self.logger.log_debug("Skipping prompt template match for extracted Twitter text")
+                                        self.logger.log_debug(f"Skipping potential placeholder (length: {len(clean_twitter_text)}): {clean_twitter_text[:100]}...")
+                                        # If it's short and has actual content (not just template), it might be valid
+                                        if len(clean_twitter_text) > 20 and not any(template_word in clean_twitter_text.lower() for template_word in [
+                                            "format:", "constraints", "total_length", "bullet_symbol", "line_length"
+                                        ]):
+                                            self.logger.log_info("⚠️ Text flagged as placeholder but might be valid, checking further...")
+                                            # Check if it has actual content (not just brackets and template words)
+                                            content_words = [w for w in clean_twitter_text.split() if len(w) > 2 and not w.startswith('[') and not w.endswith(']')]
+                                            if len(content_words) >= 3:  # Has at least 3 real words
+                                                self.logger.log_info("✅ Text has enough content words, accepting despite placeholder check")
+                                                self.logger.log_success(f"✅ Extracted Twitter text: {len(clean_twitter_text)} characters")
+                                                return clean_twitter_text
                                         continue
                                     self.logger.log_success(f"✅ Extracted Twitter text with bullet points: {len(clean_twitter_text)} characters")
                                     return clean_twitter_text
@@ -390,30 +438,66 @@ class ChatDataExtractor:
                 # Look for patterns that might indicate Twitter content
                 lines = page_text.split('\n')
                 for i, line in enumerate(lines):
-                    if "TWITTER_TEXT:" in line:
+                    # Check for both new format (TWITTER_TEXT_OUTPUT:) and old format (TWITTER_TEXT:)
+                    if "TWITTER_TEXT_OUTPUT:" in line or "TWITTER_TEXT:" in line or "TWITTER_TEXT" in line.upper():
                         # Found the Twitter text line, collect following lines
                         twitter_content = ""
-                        for j in range(i, min(i + 12, len(lines))):  # Allow a slightly larger window
+                        # Start from the line with TWITTER_TEXT_OUTPUT or TWITTER_TEXT
+                        start_idx = i
+                        # Look ahead up to 15 lines (more generous)
+                        for j in range(start_idx, min(start_idx + 15, len(lines))):
                             raw_line = lines[j]
                             current_line = raw_line.strip()
+                            
+                            # Skip the TWITTER_TEXT_OUTPUT: or TWITTER_TEXT: line itself if it's just the marker
+                            if j == start_idx and (current_line.upper().strip() == "TWITTER_TEXT_OUTPUT:" or 
+                                                   current_line.upper().strip() == "TWITTER_TEXT:"):
+                                continue
+                            
                             if not current_line:
                                 if twitter_content and not twitter_content.endswith("\n"):
                                     twitter_content += "\n"
                                 continue
-                            if current_line.startswith("**") or current_line.startswith("##"):
-                                continue
-                            if "THIS_CONCLUDES_THE_ANALYSIS" in current_line:
+                            
+                            # Stop at conclusion or condensed prompt markers
+                            if ("THIS_CONCLUDES_THE_ANALYSIS" in current_line.upper() or 
+                                "CONDENSED_PROMPT_OUTPUT" in current_line.upper()):
                                 break
-                            if current_line.startswith(("•", "-", "*")):
+                            
+                            # Skip markdown headers and formatting
+                            if current_line.startswith("**") or current_line.startswith("##") or current_line.startswith("#"):
+                                continue
+                            
+                            # Skip template markers
+                            if any(template_marker in current_line.lower() for template_marker in [
+                                "format:", "constraints:", "total_length:", "bullet_symbol:", "line_length:",
+                                "examples:", "rules:"
+                            ]):
+                                continue
+                            
+                            # Skip lines that are just template placeholders in brackets
+                            if current_line.strip().startswith("[") and current_line.strip().endswith("]") and len(current_line) < 30:
+                                continue
+                            
+                            # Collect bullet points
+                            if current_line.startswith(("•", "-", "*", "◦", "▪", "▫")):
                                 twitter_content += current_line + "\n"
                             else:
-                                twitter_content += current_line + " "
+                                # Only add if it doesn't look like a template placeholder and has content
+                                if len(current_line) > 2 and not (current_line.startswith("[") and current_line.endswith("]")):
+                                    twitter_content += current_line + " "
                         
                         if twitter_content.strip():
                             # Clean up the final result
                             clean_twitter_text = twitter_content.strip()
-                            # Remove any remaining "TWITTER_TEXT:" prefix
-                            if clean_twitter_text.startswith("TWITTER_TEXT:"):
+                            # Remove any remaining "TWITTER_TEXT_OUTPUT:" or "TWITTER_TEXT:" prefix (with or without colon)
+                            if clean_twitter_text.upper().startswith("TWITTER_TEXT_OUTPUT:"):
+                                clean_twitter_text = clean_twitter_text[20:].strip()
+                            elif clean_twitter_text.upper().startswith("TWITTER_TEXT_OUTPUT "):
+                                clean_twitter_text = clean_twitter_text[20:].strip()
+                            elif clean_twitter_text.upper().startswith("TWITTER_TEXT:"):
+                                clean_twitter_text = clean_twitter_text[12:].strip()
+                            elif clean_twitter_text.upper().startswith("TWITTER_TEXT "):
                                 clean_twitter_text = clean_twitter_text[12:].strip()
                             # Remove emoji and clean up
                             clean_twitter_text = re.sub(r'[\ud83c-\udbff\udc00-\udfff]', '', clean_twitter_text).strip()
@@ -422,8 +506,19 @@ class ChatDataExtractor:
                             clean_twitter_text = self._convert_inline_bullets_to_lines(clean_twitter_text)
                             # Remove lingering leading punctuation
                             clean_twitter_text = clean_twitter_text.lstrip(": ").strip()
+                            
+                            # More lenient placeholder check
                             if is_placeholder_twitter_text(clean_twitter_text):
-                                self.logger.log_debug("Skipping page-text candidate that matches prompt template")
+                                # Check if it has enough real content
+                                content_words = [w for w in clean_twitter_text.split() 
+                                               if len(w) > 2 and not w.startswith('[') and not w.endswith(']') 
+                                               and w.lower() not in ['format', 'constraints', 'total', 'length', 'bullet', 'symbol']]
+                                if len(content_words) >= 3:
+                                    self.logger.log_info(f"⚠️ Text flagged as placeholder but has {len(content_words)} content words, accepting")
+                                    self.logger.log_success(f"✅ Extracted Twitter text from page text: {len(clean_twitter_text)} characters")
+                                    return clean_twitter_text
+                                else:
+                                    self.logger.log_debug("Skipping page-text candidate that matches prompt template")
                             else:
                                 self.logger.log_success(f"✅ Extracted Twitter text from page text: {len(clean_twitter_text)} characters")
                                 return clean_twitter_text
@@ -435,6 +530,101 @@ class ChatDataExtractor:
             
         except Exception as e:
             self.logger.log_error(f"Twitter text extraction failed: {e}")
+            return ""
+    
+    def _extract_condensed_prompt(self) -> str:
+        """Extract the condensed prompt output from the chat response.
+        
+        Looks for pattern: {topic_id}:{chain}:{subject}
+        Example: "1:ethereum:uniswap_v3"
+        """
+        try:
+            self.logger.log_info("🔍 Extracting condensed prompt output")
+            
+            # Get the page text content
+            try:
+                page_text = self.driver.find_element(By.TAG_NAME, "body").text
+            except:
+                # Fallback: try to get text from the main content area
+                try:
+                    page_text = self.driver.find_element(By.CSS_SELECTOR, "main, .main, .content, .chat-content").text
+                except:
+                    self.logger.log_warning("⚠️ Could not get page text for condensed prompt extraction")
+                    return ""
+            
+            # Look for CONDENSED_PROMPT_OUTPUT marker or the pattern itself
+            lines = page_text.split('\n')
+            
+            # Pattern: {topic_id}:{chain}:{subject}
+            # topic_id: 1-15 (1 or 2 digits)
+            # chain: lowercase letters, underscores, or "multi"
+            # subject: lowercase letters and underscores
+            condensed_pattern = re.compile(r'(\d{1,2}):([a-z_]+|multi):([a-z_]+)')
+            
+            found_condensed_marker = False
+            for i, line in enumerate(lines):
+                line_stripped = line.strip()
+                
+                # Stop at conclusion marker
+                if ("THIS_CONCLUDES_THE_ANALYSIS" in line_stripped or 
+                    "**THIS_CONCLUDES_THE_ANALYSIS**" in line_stripped):
+                    break
+                
+                # Look for CONDENSED_PROMPT_OUTPUT marker
+                if "CONDENSED_PROMPT_OUTPUT" in line_stripped.upper():
+                    found_condensed_marker = True
+                    # Extract pattern from this line or next few lines
+                    # Check current line
+                    match = condensed_pattern.search(line_stripped)
+                    if match:
+                        condensed_prompt = match.group(0)
+                        self.logger.log_success(f"✅ Extracted condensed prompt: {condensed_prompt}")
+                        return condensed_prompt
+                    
+                    # Check next few lines if marker found
+                    for j in range(i + 1, min(i + 5, len(lines))):
+                        next_line = lines[j].strip()
+                        match = condensed_pattern.search(next_line)
+                        if match:
+                            condensed_prompt = match.group(0)
+                            self.logger.log_success(f"✅ Extracted condensed prompt: {condensed_prompt}")
+                            return condensed_prompt
+                    continue
+                
+                # If we haven't found the marker yet, look for the pattern directly
+                # (in case the AI outputs it without the marker)
+                if not found_condensed_marker:
+                    match = condensed_pattern.search(line_stripped)
+                    if match:
+                        # Verify it looks like a valid condensed prompt
+                        potential_prompt = match.group(0)
+                        # Check if it's near the end (before conclusion marker)
+                        # Look ahead to see if conclusion marker is nearby
+                        conclusion_nearby = False
+                        for j in range(i, min(i + 10, len(lines))):
+                            if "THIS_CONCLUDES_THE_ANALYSIS" in lines[j]:
+                                conclusion_nearby = True
+                                break
+                        
+                        if conclusion_nearby:
+                            self.logger.log_success(f"✅ Extracted condensed prompt (no marker): {potential_prompt}")
+                            return potential_prompt
+            
+            # Fallback: Search entire response text for the pattern
+            self.logger.log_info("🔍 Trying fallback pattern search in full text")
+            matches = condensed_pattern.findall(page_text)
+            if matches:
+                # Use the last match (most likely to be the actual output)
+                last_match = matches[-1]
+                condensed_prompt = f"{last_match[0]}:{last_match[1]}:{last_match[2]}"
+                self.logger.log_success(f"✅ Extracted condensed prompt via fallback: {condensed_prompt}")
+                return condensed_prompt
+            
+            self.logger.log_warning("⚠️ No condensed prompt found")
+            return ""
+            
+        except Exception as e:
+            self.logger.log_error(f"Condensed prompt extraction failed: {e}")
             return ""
     
     def _normalize_bullet_points(self, text: str) -> str:
