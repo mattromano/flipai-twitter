@@ -279,9 +279,9 @@ class FlipsideChatManager:
             return "[]"
     
     def _get_analysis_prompt_template(self) -> str:
-        """Get the static analysis phase prompt template (Phase 1)."""
+        """Get the unified single-shot analysis prompt template."""
         return """<role>
-Crypto analyst at Flipside creating data-driven Twitter content.
+Crypto analyst at Flipside creating data-driven Twitter content with visualizations.
 </role>
 
 <recent_prompts>
@@ -360,64 +360,75 @@ IF BAD DATA:
 2. Try different protocol/chain with cleaner data
 3. Choose different topic entirely
 
-NEVER proceed with bad data
+NEVER proceed with bad data - re-query or change topics instead.
 </data_quality_validation>
 
-<query_strategy>
-SCAN → DEEP DIVE → VALIDATE
+<artifact_generation>
+After completing analysis, create a visualization artifact:
 
-1. SCAN (2-3 topics quickly):
-- Broad aggregation to find interesting patterns
-- Look for large changes, dramatic trends
-- Check data quality immediately
+BEFORE calling generate_artifact(), write this declaration:
+Creating visualization:
+- Data: [N] rows, [start_date] to [end_date]
+- Fields: [list key fields from query]
+- Chart: [type], X=[field], Y=[metrics]
+- Chain: [specific chain/protocol analyzed]
+- Colors: #8B5CF6, #EC4899, #06B6D4, #F59E0B, #EF4444, #10B981, #6366F1, #F97316
+- Size: 1200x675px
+- Key data points: [list 5 specific values that MUST appear correctly]
 
-2. DEEP DIVE (selected topic):
-- Daily timeseries: SELECT day_, metrics WHERE day_ <= CURRENT_DATE ORDER BY day_ ASC
-- User segmentation: quality users vs. total users
-- Volume/activity patterns
-- Calculate percentage changes (verify denominators non-zero)
-
-3. VALIDATE:
-- Count data points, verify date ranges
-- Spot-check values against query results
-- Confirm calculations (growth %, changes)
-- Ensure narrative is supported by data
-</query_strategy>
+AFTER generate_artifact() returns:
+1. Examine the artifact data/HTML returned
+2. Verify at least 3 key values match your query results
+3. If values don't match: regenerate from scratch (never use update_artifact)
+4. If values match: proceed to final output
+</artifact_generation>
 
 <execution>
 1. CHECK RECENT: Review <recent_prompts>, note recent topics/chains/subjects
 2. SCAN: Query 2-3 topics, verify data quality
 3. SELECT: Choose topic with strongest data, best narrative, different from recent
-4. ANALYZE: Deep dive queries with filters
-5. VALIDATE: Run post-query checklist on all results
-6. FINDINGS: Document what/why/metrics - complete ALL analysis, queries, and documentation
-7. FINAL STEP - CHECKPOINT: ONLY after ALL analysis is 100% complete, output THIS_IS_THE_VALIDATION_CHECKPOINT as the ABSOLUTE LAST LINE (plain text, NOT a header/markdown heading)
-
-CRITICAL: THIS_IS_THE_VALIDATION_CHECKPOINT must be the very last thing you output. Do not output anything after it.
+4. ANALYZE: Deep dive queries with validation filters
+5. VALIDATE: Verify data quality (≥10 points, no future dates, reasonable values)
+6. ARTIFACT: Generate visualization with verified data
+7. VERIFY ARTIFACT: Check key values match query results
+8. OUTPUT: Provide final outputs (see below)
 </execution>
+
+<output_requirements>
+After completing analysis and artifact generation, END your response with these THREE elements in exact order (plain text, NO code blocks):
+
+1. TWITTER_TEXT_OUTPUT:
+[Topic]:
+- [Metric <50 chars]
+- [Metric <50 chars]
+- [Metric <50 chars]
+(Max 260 chars total)
+
+2. CONDENSED_PROMPT_OUTPUT:
+{{topic_id}}:{{chain}}:{{subject}}
+(Format: 1-15, chain name, 2-4 words, max 50 chars, underscores)
+
+3. THIS_CONCLUDES_THE_ANALYSIS
+</output_requirements>
 
 <rules>
 MUST:
-✓ Check recent prompts before selecting
+✓ Check recent prompts before selecting topic
 ✓ Add WHERE day_ <= CURRENT_DATE to all date queries
-✓ Validate every query (run checklist)
+✓ Validate every query result (no future dates, ≥10 data points)
 ✓ Select topic different from recent analyses
-✓ Ensure ≥10 data points for timeseries
-✓ Calculate % changes with non-zero denominators
-✓ Complete ALL analysis, queries, findings, and documentation BEFORE outputting checkpoint
-✓ Output THIS_IS_THE_VALIDATION_CHECKPOINT as the ABSOLUTE LAST LINE (plain text paragraph, NOT a header/markdown heading)
-✓ Do NOT output anything after THIS_IS_THE_VALIDATION_CHECKPOINT
+✓ Generate artifact with verified data
+✓ Verify artifact values match query before proceeding
+✓ End with TWITTER_TEXT_OUTPUT, CONDENSED_PROMPT_OUTPUT, then THIS_CONCLUDES_THE_ANALYSIS
 
 NEVER:
 ✗ Use data with future dates
-✗ Proceed with <10 points without re-querying
-✗ Repeat topic_id+chain from last 10
-✗ Repeat subject from last 32
-✗ Skip validation checklist
-✗ Accept bad data (re-query or change topics)
-✗ Format THIS_IS_THE_VALIDATION_CHECKPOINT as a header (h1, h2, h3, ##, ###, etc.)
-✗ Output THIS_IS_THE_VALIDATION_CHECKPOINT before completing all analysis
-✗ Output anything after THIS_IS_THE_VALIDATION_CHECKPOINT
+✗ Proceed with <10 data points without re-querying
+✗ Repeat topic_id+chain from last 10 analyses
+✗ Repeat subject from last 32 analyses
+✗ Skip data validation
+✗ Accept bad data (always re-query or change topics)
+✗ Use update_artifact (always regenerate from scratch if needed)
 </rules>"""
 
     def _get_artifact_prompt_template(self) -> str:
@@ -553,38 +564,28 @@ NEVER:
             self.logger.log_error(f"❌ Failed to inject recent prompts: {e}")
             return template
     
-    def submit_prompt(self, prompt: str = "", phase: int = 1) -> bool:
+    def submit_prompt(self, prompt: str = "") -> bool:
         """Submit a prompt to the chat.
-        
+
         Args:
             prompt: Original prompt parameter (kept for backward compatibility, currently unused)
-            phase: Which phase to use - 1 for analysis phase, 2 for artifact generation phase
         """
         try:
             # Load recent prompts and format for injection
             recent_prompts_list = self._format_recent_prompts_for_prompt()
             self.logger.log_debug(f"📋 Recent prompts formatted: {recent_prompts_list[:200]}..." if len(recent_prompts_list) > 200 else f"📋 Recent prompts formatted: {recent_prompts_list}")
-            
-            # Determine which template to use
-            if phase == 1:
-                # Phase 1: Analysis prompt with recent_prompts injection
-                template = self._get_analysis_prompt_template()
-                self.logger.log_debug(f"📋 Template before injection contains '{{recent_prompts}}': {'{recent_prompts}' in template}")
-                full_prompt = self._inject_recent_prompts_into_template(template, recent_prompts_list)
-                self.logger.log_debug(f"📋 Template after injection contains '{{recent_prompts}}': {'{recent_prompts}' in full_prompt}")
-                self.logger.log_info(f"📝 Using Phase 1 (Analysis) prompt template with recent_prompts injection")
-            elif phase == 2:
-                # Phase 2: Artifact generation prompt (no recent_prompts needed)
-                full_prompt = self._get_artifact_prompt_template()
-                self.logger.log_info(f"📝 Using Phase 2 (Artifact Generation) prompt template")
-            else:
-                raise ValueError(f"Invalid phase: {phase}. Must be 1 or 2.")
-            
-            
+
+            # Get the unified single-shot analysis prompt template
+            template = self._get_analysis_prompt_template()
+            self.logger.log_debug(f"📋 Template before injection contains '{{recent_prompts}}': {'{recent_prompts}' in template}")
+            full_prompt = self._inject_recent_prompts_into_template(template, recent_prompts_list)
+            self.logger.log_debug(f"📋 Template after injection contains '{{recent_prompts}}': {'{recent_prompts}' in full_prompt}")
+            self.logger.log_info(f"📝 Using unified single-shot analysis prompt template")
+
             # Log the full prompt length and verify rules are included
             self.logger.log_info(f"📝 Submitting prompt to chat")
             self.logger.log_info(f"📏 Full prompt length: {len(full_prompt)} characters")
-            
+
             # Save prompt to file for debugging
             try:
                 os.makedirs("logs", exist_ok=True)
@@ -594,32 +595,22 @@ NEVER:
                 self.logger.log_info(f"📄 Full prompt saved to: {prompt_debug_file}")
             except Exception as e:
                 self.logger.log_debug(f"Could not save prompt debug file: {e}")
-            
+
             self.logger.log_debug(f"📋 Prompt preview (first 500 chars): {full_prompt[:500]}")
-            
-            # Phase-specific verification
-            if phase == 1:
-                # Phase 1 should have topic_selection and validation checkpoint
-                if "topic_selection" in full_prompt and "THIS_IS_THE_VALIDATION_CHECKPOINT" in full_prompt:
-                    self.logger.log_info("✅ Phase 1 prompt template verified (contains topic_selection, THIS_IS_THE_VALIDATION_CHECKPOINT)")
-                else:
-                    self.logger.log_warning("⚠️ Phase 1 prompt template verification failed!")
-                    self.logger.log_warning(f"   topic_selection: {'topic_selection' in full_prompt}")
-                    self.logger.log_warning(f"   THIS_IS_THE_VALIDATION_CHECKPOINT: {'THIS_IS_THE_VALIDATION_CHECKPOINT' in full_prompt}")
-                # Verify recent prompts were injected
-                if "{recent_prompts}" in full_prompt:
-                    self.logger.log_warning("⚠️ Recent prompts were NOT injected - still contains {recent_prompts} placeholder!")
-                elif "LAST_32_ANALYSES:" in full_prompt and recent_prompts_list != "[]":
-                    self.logger.log_info(f"✅ Recent prompts verified: {recent_prompts_list[:100]}...")
-            elif phase == 2:
-                # Phase 2 should have artifact protocol and output requirements
-                if "TWITTER_TEXT_OUTPUT" in full_prompt and "CONDENSED_PROMPT_OUTPUT" in full_prompt and "THIS_CONCLUDES_THE_ANALYSIS" in full_prompt:
-                    self.logger.log_info("✅ Phase 2 prompt template verified (contains TWITTER_TEXT_OUTPUT, CONDENSED_PROMPT_OUTPUT, THIS_CONCLUDES_THE_ANALYSIS)")
-                else:
-                    self.logger.log_warning("⚠️ Phase 2 prompt template verification failed!")
-                    self.logger.log_warning(f"   TWITTER_TEXT_OUTPUT: {'TWITTER_TEXT_OUTPUT' in full_prompt}")
-                    self.logger.log_warning(f"   CONDENSED_PROMPT_OUTPUT: {'CONDENSED_PROMPT_OUTPUT' in full_prompt}")
-                    self.logger.log_warning(f"   THIS_CONCLUDES_THE_ANALYSIS: {'THIS_CONCLUDES_THE_ANALYSIS' in full_prompt}")
+
+            # Verify prompt template has required elements
+            if "topic_selection" in full_prompt and "THIS_CONCLUDES_THE_ANALYSIS" in full_prompt:
+                self.logger.log_info("✅ Prompt template verified (contains topic_selection, THIS_CONCLUDES_THE_ANALYSIS)")
+            else:
+                self.logger.log_warning("⚠️ Prompt template verification failed!")
+                self.logger.log_warning(f"   topic_selection: {'topic_selection' in full_prompt}")
+                self.logger.log_warning(f"   THIS_CONCLUDES_THE_ANALYSIS: {'THIS_CONCLUDES_THE_ANALYSIS' in full_prompt}")
+
+            # Verify recent prompts were injected
+            if "{recent_prompts}" in full_prompt:
+                self.logger.log_warning("⚠️ Recent prompts were NOT injected - still contains {recent_prompts} placeholder!")
+            elif "LAST_32_ANALYSES:" in full_prompt and recent_prompts_list != "[]":
+                self.logger.log_info(f"✅ Recent prompts verified: {recent_prompts_list[:100]}...")
             
             # Wait for page to fully load and chat interface to render
             self.logger.log_info("⏳ Waiting for chat interface to load...")
@@ -1838,13 +1829,12 @@ NEVER:
     
     def run_analysis(self, prompt: str = "", prompt2: Optional[str] = None, response_timeout: int = 600) -> Dict[str, Any]:
         """Run the complete analysis workflow with comprehensive features.
-        
+
         Args:
             prompt: Kept for backward compatibility (unused - static prompts are used instead)
-            prompt2: When None, uses single-phase workflow (backward compatible).
-                     When provided (any value), uses two-phase workflow with static prompts.
-            response_timeout: Timeout in seconds for each phase
-            
+            prompt2: Kept for backward compatibility (unused)
+            response_timeout: Timeout in seconds for waiting for AI response
+
         Returns:
             Dictionary with success status, data, and any errors
         """
@@ -1854,72 +1844,53 @@ NEVER:
             "timestamp": datetime.now().isoformat(),
             "data": {}
         }
-        
+
         try:
             # Reset transient data from previous runs
             self.extracted_twitter_text = ""
             # Step 1: Initialization
             self.logger.log_info("🚀 Starting Flipside AI Analysis Workflow")
-            # Always use two-phase workflow with static prompts
-            self.logger.log_info("📋 Two-phase workflow: Analysis → Artifact Generation (using static prompts)")
+            self.logger.log_info("📋 Single-shot workflow with unified prompt")
             self.logger.log_info("=" * 60)
-            
+
             if not self.initialize():
                 raise Exception("Failed to initialize automation environment")
-            
+
             # Step 2: Authentication
             self.logger.log_info("🔐 Starting authentication")
             if not self.authenticate():
                 raise Exception("Authentication failed")
             self.logger.log_success("✅ Authentication successful")
-            
+
             # Step 3: Navigation
             self.logger.log_info("🧭 Navigating to chat page")
             if not self.navigate_to_chat():
                 raise Exception("Failed to navigate to chat page")
             self.logger.log_success("✅ Successfully navigated to chat page")
-            
-            # Step 4: Submit First Prompt (Phase 1)
-            self.logger.log_info(f"📝 Phase 1: Submitting analysis prompt")
-            if not self.submit_prompt(phase=1):
-                raise Exception("Failed to submit first prompt")
-            self.logger.log_success("✅ Phase 1 prompt submitted successfully")
-            
-            # Step 5: Wait for Validation Checkpoint (Phase 1)
-            self.logger.log_info(f"⏳ Phase 1: Waiting for validation checkpoint (timeout: {response_timeout}s)")
-            checkpoint_found = self.wait_for_checkpoint(response_timeout)
-            if not checkpoint_found:
-                self.logger.log_warning("⚠️ Validation checkpoint timeout, but continuing to Phase 2...")
-            else:
-                self.logger.log_success("✅ Phase 1: Validation checkpoint reached")
-                # Wait 30 seconds after checkpoint before submitting Phase 2
-                self.logger.log_info("⏳ Waiting 30 seconds after checkpoint before Phase 2...")
-                time.sleep(30)
-                self.logger.log_info("✅ Wait complete, proceeding to Phase 2")
-            
-            # Step 6: Submit Second Prompt (Phase 2)
-            self.logger.log_info(f"📝 Phase 2: Submitting artifact generation prompt")
-            if not self.submit_prompt(phase=2):
-                raise Exception("Failed to submit second prompt")
-            self.logger.log_success("✅ Phase 2 prompt submitted successfully")
-            
-            # Step 7: Wait for Final Response (Phase 2)
-            self.logger.log_info(f"⏳ Phase 2: Waiting for final AI response (timeout: {response_timeout}s)")
+
+            # Step 4: Submit Unified Prompt
+            self.logger.log_info(f"📝 Submitting unified analysis prompt")
+            if not self.submit_prompt():
+                raise Exception("Failed to submit prompt")
+            self.logger.log_success("✅ Prompt submitted successfully")
+
+            # Step 5: Wait for AI Response (looks for THIS_CONCLUDES_THE_ANALYSIS marker)
+            self.logger.log_info(f"⏳ Waiting for AI response (timeout: {response_timeout}s)")
             response_complete = self.wait_for_response(response_timeout)
-            
+
             if not response_complete:
                 self.logger.log_warning("⚠️ Response timeout, but continuing with data capture...")
             else:
                 self.logger.log_success("✅ AI response completed")
-            
+
             # Step 6: Extract Data
             self.logger.log_info("📊 Extracting analysis data")
             results["data"] = self.extract_data()
-            
+
             # Step 7: Capture Published Artifact Screenshot (handled by ChatDataExtractor)
             # The artifact screenshot is captured by the ChatDataExtractor during data extraction
             # No need to duplicate this logic here
-            
+
             # Step 8: Final Screenshot
             self.logger.log_info("📸 Capturing final screenshot")
             try:
@@ -1929,16 +1900,16 @@ NEVER:
                     self.logger.log_success(f"✅ Final screenshot: {final_screenshot}")
             except Exception as screenshot_error:
                 self.logger.log_warning(f"Failed to capture final screenshot: {screenshot_error}")
-            
+
             # Mark as successful
             results["success"] = True
-            
+
             # Log summary
             response_length = len(results["data"].get("response_text", ""))
             twitter_length = len(results["data"].get("twitter_text", ""))
             artifacts_count = len(results["data"].get("artifacts", []))
             screenshots_count = len(results["data"].get("screenshots", []))
-            
+
             self.logger.log_success("🎉 Analysis workflow completed successfully!")
             self.logger.log_info(f"📊 Results Summary:")
             self.logger.log_info(f"   📝 Response text: {response_length} characters")
