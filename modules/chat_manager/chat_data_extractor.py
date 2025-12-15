@@ -786,125 +786,343 @@ class ChatDataExtractor:
         except Exception as e:
             self.logger.log_error(f"Response text extraction failed: {e}")
             return ""
-    
+
+    def _navigate_to_artifacts_page(self) -> bool:
+        """Navigate to the artifacts page via sidebar link.
+
+        Returns:
+            True on success, False on failure.
+        """
+        try:
+            self.logger.log_info("🧭 Navigating to artifacts page")
+
+            # Primary XPath provided by user
+            primary_xpath = "/html/body/div[1]/div/div/div[2]/div/div[2]/div[1]/ul/li[2]/a"
+
+            # Fallback selectors
+            fallback_selectors = [
+                (By.XPATH, "//a[contains(text(), 'Artifacts')]"),
+                (By.XPATH, "//a[contains(@href, '/artifacts')]"),
+                (By.XPATH, "//li//a[contains(@href, 'artifacts')]"),
+                (By.CSS_SELECTOR, "a[href*='artifacts']"),
+            ]
+
+            # Try primary XPath first
+            element = None
+            try:
+                element = WebDriverWait(self.driver, 5).until(
+                    EC.element_to_be_clickable((By.XPATH, primary_xpath))
+                )
+                self.logger.log_info("✅ Found artifacts link via primary XPath")
+            except TimeoutException:
+                self.logger.log_info("⚠️ Primary XPath not found, trying fallbacks...")
+
+            # Try fallback selectors if primary failed
+            if not element:
+                for by_type, selector in fallback_selectors:
+                    try:
+                        element = WebDriverWait(self.driver, 3).until(
+                            EC.element_to_be_clickable((by_type, selector))
+                        )
+                        self.logger.log_info(f"✅ Found artifacts link via fallback: {selector}")
+                        break
+                    except TimeoutException:
+                        continue
+
+            if not element:
+                self.logger.log_error("❌ Could not find artifacts page link")
+                return False
+
+            # Click the link
+            self.driver.execute_script("arguments[0].click();", element)
+            time.sleep(3)  # Wait for page to load
+
+            # Wait for artifacts page to load
+            WebDriverWait(self.driver, 15).until(
+                EC.presence_of_element_located((By.TAG_NAME, "main"))
+            )
+
+            self.logger.log_success("✅ Successfully navigated to artifacts page")
+            return True
+
+        except Exception as e:
+            self.logger.log_error(f"Failed to navigate to artifacts page: {e}")
+            return False
+
+    def _hover_and_click_publish_button(self) -> bool:
+        """Hover over first artifact card to reveal buttons, then click Publish.
+
+        The artifact cards have buttons that are hidden (opacity-0) until hover.
+        We use JavaScript to force the buttons visible since Selenium hover
+        doesn't always trigger CSS :hover states reliably.
+
+        Returns:
+            True on success, False on failure.
+        """
+        try:
+            from selenium.webdriver.common.action_chains import ActionChains
+
+            self.logger.log_info("🖱️ Looking for artifact card and Publish button")
+
+            # Find the first artifact card - it has the group class for hover effects
+            artifact_card_selectors = [
+                (By.CSS_SELECTOR, "div.group.cursor-pointer"),
+                (By.CSS_SELECTOR, "div[class*='group'][class*='cursor-pointer']"),
+                (By.CSS_SELECTOR, "div.rounded-xl.cursor-pointer.group"),
+                (By.XPATH, "//div[contains(@class, 'group') and contains(@class, 'cursor-pointer')]"),
+            ]
+
+            artifact_card = None
+            for by_type, selector in artifact_card_selectors:
+                try:
+                    artifact_card = WebDriverWait(self.driver, 5).until(
+                        EC.presence_of_element_located((by_type, selector))
+                    )
+                    self.logger.log_info(f"✅ Found artifact card via: {selector}")
+                    break
+                except TimeoutException:
+                    continue
+
+            if not artifact_card:
+                self.logger.log_error("❌ Could not find artifact card")
+                return False
+
+            # Use JavaScript to find and click the Publish button
+            # This is more reliable than trying to trigger CSS hover states
+            self.logger.log_info("🔧 Using JavaScript to find and click Publish button...")
+
+            # First, trigger mouse events on the card to make buttons appear
+            # The buttons may only render after actual hover events, not just CSS :hover
+            self.logger.log_info("🖱️ Dispatching mouse events to trigger button rendering...")
+            self.driver.execute_script("""
+                const card = arguments[0];
+                // Dispatch mouseenter and mouseover events
+                card.dispatchEvent(new MouseEvent('mouseenter', {bubbles: true, cancelable: true}));
+                card.dispatchEvent(new MouseEvent('mouseover', {bubbles: true, cancelable: true}));
+            """, artifact_card)
+            time.sleep(1)  # Wait for buttons to render
+
+            # Debug: log all buttons found in the card after hover
+            debug_info = self.driver.execute_script("""
+                const card = arguments[0];
+                const allButtons = card.querySelectorAll('button');
+                const buttonInfo = [];
+                allButtons.forEach((btn, idx) => {
+                    buttonInfo.push({
+                        index: idx,
+                        ariaLabel: btn.getAttribute('aria-label'),
+                        className: btn.className,
+                        innerHTML: btn.innerHTML.substring(0, 100),
+                        isVisible: window.getComputedStyle(btn).opacity !== '0'
+                    });
+                });
+
+                // Also check for links that might act as buttons
+                const allLinks = card.querySelectorAll('a');
+                const linkInfo = [];
+                allLinks.forEach((link, idx) => {
+                    linkInfo.push({
+                        index: idx,
+                        href: link.getAttribute('href'),
+                        ariaLabel: link.getAttribute('aria-label'),
+                        text: link.textContent.substring(0, 50)
+                    });
+                });
+
+                // Check globally for any Publish buttons that might be outside the card
+                const globalPublishButtons = document.querySelectorAll('button[aria-label="Publish"]');
+
+                return {
+                    buttons: buttonInfo,
+                    links: linkInfo,
+                    globalPublishCount: globalPublishButtons.length,
+                    cardHTML: card.innerHTML.substring(0, 500)
+                };
+            """, artifact_card)
+
+            self.logger.log_info(f"🔍 Debug - Found {len(debug_info.get('buttons', []))} buttons in card, {debug_info.get('globalPublishCount', 0)} global Publish buttons")
+            for btn in debug_info.get('buttons', []):
+                self.logger.log_info(f"   Button {btn['index']}: aria-label='{btn['ariaLabel']}', visible={btn['isVisible']}")
+            for link in debug_info.get('links', []):
+                self.logger.log_info(f"   Link {link['index']}: href='{link['href']}', aria-label='{link['ariaLabel']}'")
+
+            # Hover over the first artifact card to reveal buttons
+            self.logger.log_info("🖱️ Hovering over artifact card to reveal buttons...")
+
+            actions = ActionChains(self.driver)
+            actions.move_to_element(artifact_card).perform()
+            time.sleep(1.5)
+
+            # Step 1: Check if Publish button exists (artifact not yet public)
+            # If found, click it to make the artifact public
+            publish_clicked = self.driver.execute_script("""
+                const publishBtn = document.querySelector('button[aria-label="Publish"]');
+                if (publishBtn && window.getComputedStyle(publishBtn).opacity !== '0') {
+                    publishBtn.click();
+                    return true;
+                }
+                return false;
+            """)
+
+            if publish_clicked:
+                self.logger.log_info("✅ Clicked Publish button (making artifact public)")
+                time.sleep(1.5)
+                # Re-hover after publish to reveal buttons again
+                actions = ActionChains(self.driver)
+                actions.move_to_element(artifact_card).perform()
+                time.sleep(1)
+            else:
+                self.logger.log_info("ℹ️ No Publish button found - artifact already public")
+
+            # Step 2: Click Copy Link button to copy URL to clipboard
+            copy_link_clicked = self.driver.execute_script("""
+                const copyBtn = document.querySelector('button[aria-label="Copy Link"]');
+                if (copyBtn && window.getComputedStyle(copyBtn).opacity !== '0') {
+                    copyBtn.click();
+                    return true;
+                }
+                return false;
+            """)
+
+            if copy_link_clicked:
+                self.logger.log_success("✅ Clicked Copy Link button")
+                time.sleep(1)
+                return True
+            else:
+                self.logger.log_warning("⚠️ Copy Link button not found")
+                return False
+
+        except Exception as e:
+            self.logger.log_error(f"Error in hover/click workflow: {e}")
+            return False
+
+    def _click_copy_link_in_dialog(self) -> bool:
+        """Verify Copy Link was clicked (now handled by _hover_and_click_publish_button).
+
+        This method is kept for backward compatibility but the Copy Link button
+        click is now done in _hover_and_click_publish_button.
+
+        Returns:
+            True (Copy Link was already clicked in the previous step).
+        """
+        self.logger.log_info("🔗 Copy Link already clicked in previous step")
+        return True
+
+    def _setup_clipboard_interception(self) -> bool:
+        """Setup JavaScript clipboard interception.
+
+        Returns:
+            True if setup successful, False otherwise.
+        """
+        try:
+            self.logger.log_info("🔧 Setting up clipboard interception")
+
+            # Inject code to intercept clipboard.writeText calls and store the value
+            self.driver.execute_script("""
+                window.__intercepted_clipboard_url = null;
+                const originalWriteText = navigator.clipboard.writeText.bind(navigator.clipboard);
+                navigator.clipboard.writeText = function(text) {
+                    console.log('Intercepted clipboard.writeText:', text);
+                    window.__intercepted_clipboard_url = text;
+                    return originalWriteText(text);
+                };
+            """)
+
+            self.logger.log_success("✅ Clipboard interception set up")
+            return True
+
+        except Exception as e:
+            self.logger.log_warning(f"⚠️ Could not set up clipboard interception: {e}")
+            return False
+
+    def _extract_artifact_url_from_clipboard_or_interception(self) -> str:
+        """Extract artifact URL from intercepted clipboard or system clipboard.
+
+        Tries multiple methods:
+        1. JavaScript clipboard interception
+        2. System clipboard via pyperclip
+
+        Returns:
+            URL string or empty string if not found.
+        """
+        artifact_url = ""
+
+        # Method 1: Try reading from JavaScript interception
+        try:
+            intercepted_url = self.driver.execute_script("return window.__intercepted_clipboard_url")
+            if intercepted_url and 'flipsidecrypto.xyz' in intercepted_url:
+                self.logger.log_success(f"✅ Got artifact URL from clipboard interception: {intercepted_url}")
+                return intercepted_url
+        except Exception as e:
+            self.logger.log_debug(f"Could not read intercepted clipboard: {e}")
+
+        # Method 2: Fall back to system clipboard via pyperclip
+        artifact_url = self._extract_artifact_url_from_clipboard()
+
+        return artifact_url
+
     def _capture_artifact_screenshot(self) -> str:
-        """Capture artifact screenshot by clicking publish button, copying link from clipboard, and navigating to it."""
+        """Capture artifact screenshot by navigating to artifacts page.
+
+        New flow:
+        1. Setup clipboard interception
+        2. Navigate to artifacts page
+        3. Hover over artifact card and click Publish button
+        4. Click Copy Link button in the publish dialog
+        5. Extract artifact URL from clipboard
+        6. Navigate to artifact URL and screenshot
+        """
         try:
             self.logger.log_info("📸 Capturing artifact screenshot")
-            
-            # Step 1: Intercept clipboard copy using JavaScript before clicking publish
-            self.logger.log_info("🔧 Setting up clipboard interception")
-            clipboard_intercepted = False
-            try:
-                # Inject code to intercept clipboard.writeText calls and store the value
-                self.driver.execute_script("""
-                    window.__intercepted_clipboard_url = null;
-                    const originalWriteText = navigator.clipboard.writeText.bind(navigator.clipboard);
-                    navigator.clipboard.writeText = function(text) {
-                        console.log('Intercepted clipboard.writeText:', text);
-                        window.__intercepted_clipboard_url = text;
-                        return originalWriteText(text);
-                    };
-                """)
-                clipboard_intercepted = True
-                self.logger.log_success("✅ Clipboard interception set up")
-            except Exception as e:
-                self.logger.log_warning(f"⚠️ Could not set up clipboard interception: {e}")
-            
-            # Initialize variables
-            artifact_url = None
-            copy_link_button = None
-            
-            # Step 2: Look for and click the Publish button (this will copy link to clipboard automatically)
-            publish_button = self._find_publish_button()
-            if publish_button:
-                self.logger.log_info("📤 Clicking Publish button (will copy link to clipboard)")
-                self.driver.execute_script("arguments[0].click();", publish_button)
-                time.sleep(3)  # Wait for publish to complete and button to transform
-                
-                # Try to read the intercepted URL first
-                if clipboard_intercepted:
-                    try:
-                        intercepted_url = self.driver.execute_script("return window.__intercepted_clipboard_url")
-                        if intercepted_url and 'flipsidecrypto.xyz' in intercepted_url:
-                            self.logger.log_success(f"✅ Got artifact URL from clipboard interception: {intercepted_url}")
-                            artifact_url = intercepted_url
-                            # Skip to navigation
-                            self.logger.log_info(f"🔗 Extracted artifact URL: {artifact_url}")
-                            # Store artifact_url as instance variable
-                            self.artifact_url = artifact_url
-                            self.logger.log_info("🧭 Navigating to artifact URL")
-                            self.driver.get(artifact_url)
-                            time.sleep(5)
-                            WebDriverWait(self.driver, 30).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
-                            screenshot_path = self._continue_artifact_screenshot()
-                            # Return both screenshot path and artifact URL
-                            return {
-                                "screenshot": screenshot_path,
-                                "artifact_url": artifact_url
-                            }
-                    except Exception as e:
-                        self.logger.log_warning(f"⚠️ Could not read intercepted clipboard: {e}")
-                
-                # Wait for Copy link button to appear (up to 10 seconds)
-                self.logger.log_info("⏳ Waiting for Copy link button to appear after publish...")
-                for attempt in range(10):
-                    copy_link_button = self._find_copy_link_button()
-                    if copy_link_button:
-                        self.logger.log_success(f"✅ Copy link button appeared after {attempt + 1} second(s)")
-                        break
-                    time.sleep(1)
-            else:
-                self.logger.log_info("ℹ️ Publish button not found, assuming already published")
-            
-            # Step 3: Read the artifact URL from clipboard (if we didn't get it from interception)
-            if not artifact_url:
-                artifact_url = self._extract_artifact_url_from_clipboard()
-            
-            # Step 4: If clipboard reading failed, try clicking the Copy link button (appears after publish)
-            if not artifact_url:
-                self.logger.log_info("🔄 Clipboard empty, looking for Copy link button...")
-                if not copy_link_button:
-                    copy_link_button = self._find_copy_link_button()
-                    
-                if copy_link_button:
-                    self.logger.log_info("🔗 Clicking Copy link button (will copy link to clipboard)")
-                    self.driver.execute_script("arguments[0].click();", copy_link_button)
-                    time.sleep(2)  # Wait for clipboard copy to complete
-                    # Try reading from clipboard again
-                    artifact_url = self._extract_artifact_url_from_clipboard()
-            
-            # Step 5: Final fallback - Try extracting from View button
-            if not artifact_url:
-                self.logger.log_warning("⚠️ Could not read URL from clipboard, trying View button extraction...")
-                artifact_url = self._extract_artifact_url()
-            
+
+            # Step 1: Setup clipboard interception
+            self._setup_clipboard_interception()
+
+            # Step 2: Navigate to artifacts page
+            if not self._navigate_to_artifacts_page():
+                self.logger.log_error("❌ Failed to navigate to artifacts page")
+                return {"screenshot": "", "artifact_url": ""}
+
+            # Step 3: Hover over artifact card and click Publish button
+            if not self._hover_and_click_publish_button():
+                self.logger.log_error("❌ Failed to hover and click Publish button")
+                return {"screenshot": "", "artifact_url": ""}
+
+            # Step 4: Click Copy Link button in the publish dialog
+            if not self._click_copy_link_in_dialog():
+                self.logger.log_error("❌ Failed to click Copy Link button in dialog")
+                return {"screenshot": "", "artifact_url": ""}
+
+            # Step 5: Extract artifact URL from clipboard
+            artifact_url = self._extract_artifact_url_from_clipboard_or_interception()
+
             if not artifact_url:
                 self.logger.log_error("❌ Could not extract artifact URL")
                 return {"screenshot": "", "artifact_url": ""}
-            
+
             self.logger.log_info(f"🔗 Extracted artifact URL: {artifact_url}")
-            
+
             # Store artifact_url as instance variable for access later
             self.artifact_url = artifact_url
-            
-            # Step 6: Navigate directly to the artifact URL
+
+            # Step 6: Navigate to artifact URL and screenshot
             self.logger.log_info("🧭 Navigating to artifact URL")
             self.driver.get(artifact_url)
             time.sleep(5)
-            
+
             # Wait for page to load
             WebDriverWait(self.driver, 30).until(
                 EC.presence_of_element_located((By.TAG_NAME, "body"))
             )
-            
+
             screenshot_path = self._continue_artifact_screenshot()
+
             # Return both screenshot path and artifact URL
             return {
                 "screenshot": screenshot_path,
                 "artifact_url": artifact_url
             }
-            
+
         except Exception as e:
             self.logger.log_error(f"Artifact screenshot capture failed: {e}")
             return {"screenshot": "", "artifact_url": ""}
@@ -912,62 +1130,112 @@ class ChatDataExtractor:
     def _continue_artifact_screenshot(self) -> str:
         """Continue artifact screenshot after navigation."""
         try:
-            # Wait for artifact title to appear (e.g., "Chain Health Radar")
-            self.logger.log_info("⏳ Waiting for artifact title to load...")
+            # Wait for artifact title to appear
+            self.logger.log_info("⏳ Waiting for artifact content to load...")
             try:
                 WebDriverWait(self.driver, 15).until(
-                    lambda d: "Chain Health" in d.page_source or "Health Radar" in d.page_source or len(d.find_elements(By.TAG_NAME, "h1")) > 0
+                    lambda d: len(d.find_elements(By.TAG_NAME, "h1")) > 0 or len(d.find_elements(By.CSS_SELECTOR, "[class*='chart'], [class*='Chart'], canvas, svg")) > 0
                 )
-                self.logger.log_info("✅ Artifact title detected")
+                self.logger.log_info("✅ Artifact content detected")
             except:
-                self.logger.log_warning("⚠️ Title not found, proceeding anyway")
-            
-            time.sleep(3)  # Additional wait for all content to render
-            
+                self.logger.log_warning("⚠️ Content not found, proceeding anyway")
+
+            # Wait longer for charts/lazy content to render
+            time.sleep(5)
+
             # Step 6: Scroll through entire page to ensure all content loads
             self.logger.log_info("📜 Scrolling through page to load all content...")
             last_height = self.driver.execute_script("return document.body.scrollHeight")
-            scroll_pause = 1
-            max_scrolls = 10
+            scroll_pause = 1.5
+            max_scrolls = 15
             scroll_count = 0
-            
+
             while scroll_count < max_scrolls:
                 self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
                 time.sleep(scroll_pause)
                 new_height = self.driver.execute_script("return document.body.scrollHeight")
                 if new_height == last_height:
-                    break
+                    # Do one more scroll after a longer pause to catch any late loaders
+                    time.sleep(2)
+                    final_height = self.driver.execute_script("return document.body.scrollHeight")
+                    if final_height == new_height:
+                        break
+                    new_height = final_height
                 last_height = new_height
                 scroll_count += 1
-            
+                self.logger.log_debug(f"Scroll {scroll_count}: height = {new_height}")
+
             # Scroll back to top
             self.driver.execute_script("window.scrollTo(0, 0);")
             time.sleep(2)
-            
-            # Step 7: Get full page dimensions and set window size
-            total_width = self.driver.execute_script("return Math.max(document.body.scrollWidth, document.documentElement.scrollWidth);")
-            total_height = self.driver.execute_script("return Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);")
-            
+
+            # Step 7: Get full page dimensions using multiple methods
+            # Some React apps have content in nested containers that body.scrollHeight doesn't capture
+            total_height = self.driver.execute_script("""
+                // Get height from multiple sources and take the maximum
+                const bodyHeight = document.body.scrollHeight;
+                const docHeight = document.documentElement.scrollHeight;
+
+                // Check for common scrollable containers
+                let maxContainerHeight = 0;
+                const containers = document.querySelectorAll('main, [class*="container"], [class*="content"], [class*="wrapper"], [class*="page"]');
+                containers.forEach(c => {
+                    const rect = c.getBoundingClientRect();
+                    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                    const totalHeight = rect.bottom + scrollTop;
+                    if (totalHeight > maxContainerHeight) {
+                        maxContainerHeight = totalHeight;
+                    }
+                });
+
+                // Also check the bounding box of all elements
+                let maxBottom = 0;
+                document.querySelectorAll('*').forEach(el => {
+                    try {
+                        const rect = el.getBoundingClientRect();
+                        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                        const bottom = rect.bottom + scrollTop;
+                        if (bottom > maxBottom && rect.height > 0) {
+                            maxBottom = bottom;
+                        }
+                    } catch(e) {}
+                });
+
+                return Math.max(bodyHeight, docHeight, maxContainerHeight, maxBottom);
+            """)
+
+            total_width = self.driver.execute_script("""
+                return Math.max(
+                    document.body.scrollWidth,
+                    document.documentElement.scrollWidth,
+                    document.body.offsetWidth,
+                    document.documentElement.offsetWidth
+                );
+            """)
+
             self.logger.log_info(f"📏 Full page dimensions: {total_width}x{total_height}")
-            
+
             # Set window to full page size with buffer
-            adjusted_height = total_height + 200  # Extra buffer for header/footer
-            self.driver.set_window_size(max(total_width, 1200), adjusted_height)
-            time.sleep(2)
-            
+            adjusted_height = int(total_height) + 300  # Extra buffer for header/footer
+            adjusted_width = max(int(total_width), 1200)
+
+            self.logger.log_info(f"📐 Setting window size to: {adjusted_width}x{adjusted_height}")
+            self.driver.set_window_size(adjusted_width, adjusted_height)
+            time.sleep(3)  # Wait for resize to take effect
+
             # Scroll to top one more time to ensure we start from beginning
             self.driver.execute_script("window.scrollTo(0, 0);")
             time.sleep(1)
-            
+
             # Step 8: Take full page screenshot of the artifact
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             screenshot_path = f"screenshots/artifact_{timestamp}.png"
-            
+
             self.logger.log_info("📸 Taking full page screenshot...")
             self.driver.save_screenshot(screenshot_path)
-            
+
             self.logger.log_success(f"✅ Full page screenshot captured: {screenshot_path}")
-            self.logger.log_info(f"📐 Screenshot size: {total_width}x{adjusted_height}")
+            self.logger.log_info(f"📐 Target size: {adjusted_width}x{adjusted_height}")
             
             # Step 10: Get file details and return path
             if os.path.exists(screenshot_path):
@@ -990,486 +1258,11 @@ class ChatDataExtractor:
             else:
                 self.logger.log_error("❌ Screenshot file was not created")
                 return ""
-                
+
         except Exception as e:
             self.logger.log_error(f"❌ Error during artifact screenshot: {e}")
             return ""
-    
-    def _extract_artifact_url(self) -> str:
-        """Extract the artifact URL from the View button or page."""
-        try:
-            self.logger.log_info("🔍 Extracting artifact URL")
-            
-            # Method 1: Look for href attribute in View button
-            view_button = self._find_view_button()
-            if view_button:
-                try:
-                    # Check if it's a link
-                    href = view_button.get_attribute("href")
-                    if href and "artifacts" in href and not href.endswith('/artifacts'):
-                        self.logger.log_success(f"✅ Found artifact URL in View button href: {href}")
-                        return href
-                    
-                    # Check parent elements for href
-                    parent = view_button.find_element(By.XPATH, "..")
-                    href = parent.get_attribute("href")
-                    if href and "artifacts" in href and not href.endswith('/artifacts'):
-                        self.logger.log_success(f"✅ Found artifact URL in parent href: {href}")
-                        return href
-                    
-                    # Check for onclick or data attributes that might contain the URL
-                    onclick = view_button.get_attribute("onclick")
-                    if onclick and "artifacts" in onclick:
-                        # Extract URL from onclick JavaScript
-                        url_match = re.search(r'https://flipsidecrypto\.xyz/chat/shared/artifacts/[^"\s]+-[a-zA-Z0-9]+', onclick)
-                        if url_match:
-                            artifact_url = url_match.group(0)
-                            self.logger.log_success(f"✅ Found artifact URL in View button onclick: {artifact_url}")
-                            return artifact_url
-                    
-                    # Check data attributes
-                    for attr in ["data-url", "data-href", "data-link", "data-artifact-url"]:
-                        value = view_button.get_attribute(attr)
-                        if value and "artifacts" in value and not value.endswith('/artifacts'):
-                            self.logger.log_success(f"✅ Found artifact URL in View button {attr}: {value}")
-                            return value
-                            
-                except Exception as e:
-                    self.logger.log_debug(f"Could not extract href from View button: {e}")
-            
-            # Method 2: Look for any links containing "artifacts" in the page
-            try:
-                artifact_links = self.driver.find_elements(By.XPATH, "//a[contains(@href, 'artifacts')]")
-                for link in artifact_links:
-                    href = link.get_attribute("href")
-                    if href and "artifacts" in href and not href.endswith('/artifacts'):
-                        # Check if it matches the specific pattern with title and hash
-                        if re.search(r'/shared/artifacts/[^/]+-[a-zA-Z0-9]+', href):
-                            self.logger.log_success(f"✅ Found specific artifact URL in page links: {href}")
-                            return href
-            except Exception as e:
-                self.logger.log_debug(f"Could not find artifact links: {e}")
-            
-            # Method 3: Look for data attributes or other indicators
-            try:
-                # Look for elements with data attributes that might contain the URL
-                elements_with_data = self.driver.find_elements(By.XPATH, "//*[@data-url or @data-href or @data-link]")
-                for element in elements_with_data:
-                    for attr in ["data-url", "data-href", "data-link"]:
-                        value = element.get_attribute(attr)
-                        if value and "artifacts" in value:
-                            self.logger.log_success(f"✅ Found artifact URL in data attribute: {value}")
-                            return value
-            except Exception as e:
-                self.logger.log_debug(f"Could not find data attributes: {e}")
-            
-            # Method 4: Try clicking the View button and monitoring for URL changes
-            try:
-                self.logger.log_info("🔍 Trying to click View button and monitor for URL changes...")
-                
-                view_button = self._find_view_button()
-                if view_button:
-                    # Get current URL before clicking
-                    current_url = self.driver.current_url
-                    self.logger.log_info(f"📋 Current URL before click: {current_url}")
-                    
-                    # Try to intercept the click and see what happens
-                    try:
-                        # Try different click methods
-                        self.logger.log_info("🖱️ Trying different click methods...")
-                        
-                        # Method 1: JavaScript click
-                        self.driver.execute_script("arguments[0].click();", view_button)
-                        time.sleep(2)
-                        
-                        # Check if anything happened
-                        if len(self.driver.window_handles) > 1 or self.driver.current_url != current_url:
-                            self.logger.log_info("✅ JavaScript click worked")
-                        else:
-                            # Method 2: Regular click
-                            self.logger.log_info("🖱️ Trying regular click...")
-                            view_button.click()
-                            time.sleep(2)
-                            
-                            # Method 3: ActionChains click
-                            if len(self.driver.window_handles) == 1 and self.driver.current_url == current_url:
-                                self.logger.log_info("🖱️ Trying ActionChains click...")
-                                from selenium.webdriver.common.action_chains import ActionChains
-                                ActionChains(self.driver).move_to_element(view_button).click().perform()
-                                time.sleep(2)
-                        
-                        time.sleep(1)  # Additional wait
-                        
-                        # Check if URL changed
-                        new_url = self.driver.current_url
-                        if new_url != current_url:
-                            self.logger.log_success(f"✅ URL changed after click: {new_url}")
-                            if "artifacts" in new_url and not new_url.endswith('/artifacts'):
-                                return new_url
-                        
-                        # Check if a new window/tab opened
-                        all_windows = self.driver.window_handles
-                        if len(all_windows) > 1:
-                            self.logger.log_info(f"📋 New window opened: {all_windows}")
-                            # Switch to new window and get its URL
-                            original_window = self.driver.current_window_handle
-                            for window in all_windows:
-                                if window != original_window:
-                                    self.driver.switch_to.window(window)
-                                    new_window_url = self.driver.current_url
-                                    self.logger.log_info(f"📋 New window URL: {new_window_url}")
-                                    if "artifacts" in new_window_url and not new_window_url.endswith('/artifacts'):
-                                        # Switch back to original window
-                                        self.driver.switch_to.window(original_window)
-                                        return new_window_url
-                                    # Switch back to original window
-                                    self.driver.switch_to.window(original_window)
-                                    break
-                        
-                        # Check for any network requests or redirects
-                        # Look for any new links that might have appeared
-                        new_links = self.driver.find_elements(By.XPATH, "//a[contains(@href, 'artifacts')]")
-                        for link in new_links:
-                            href = link.get_attribute("href")
-                            if href and "artifacts" in href and not href.endswith('/artifacts'):
-                                if re.search(r'/shared/artifacts/[^/]+-[a-zA-Z0-9]+', href):
-                                    self.logger.log_success(f"✅ Found new artifact link after click: {href}")
-                                    return href
-                        
-                    except Exception as e:
-                        self.logger.log_debug(f"Click monitoring failed: {e}")
-                
-            except Exception as e:
-                self.logger.log_debug(f"View button click monitoring failed: {e}")
-            
-            # Method 5: Browser console debugging - inspect View button and page state
-            try:
-                self.logger.log_info("🔍 Running browser console debugging...")
-                
-                # Get View button and inspect it thoroughly
-                view_button = self._find_view_button()
-                if view_button:
-                    # Execute JavaScript to inspect the View button
-                    button_inspection = self.driver.execute_script("""
-                        var button = arguments[0];
-                        var result = {
-                            tagName: button.tagName,
-                            className: button.className,
-                            id: button.id,
-                            innerHTML: button.innerHTML,
-                            outerHTML: button.outerHTML,
-                            attributes: {},
-                            parentElement: null,
-                            onclick: button.onclick ? button.onclick.toString() : null,
-                            href: button.href || null
-                        };
-                        
-                        // Get all attributes
-                        for (var i = 0; i < button.attributes.length; i++) {
-                            var attr = button.attributes[i];
-                            result.attributes[attr.name] = attr.value;
-                        }
-                        
-                        // Get parent element info
-                        if (button.parentElement) {
-                            result.parentElement = {
-                                tagName: button.parentElement.tagName,
-                                className: button.parentElement.className,
-                                href: button.parentElement.href || null,
-                                onclick: button.parentElement.onclick ? button.parentElement.onclick.toString() : null
-                            };
-                        }
-                        
-                        return result;
-                    """, view_button)
-                    
-                    self.logger.log_info(f"🔍 View button inspection: {json.dumps(button_inspection, indent=2)}")
-                
-                # Look for any JavaScript variables or functions that might contain the URL
-                js_variables = self.driver.execute_script("""
-                    var variables = {};
-                    
-                    // Check common variable names that might contain artifact URLs
-                    var possibleVars = ['artifactUrl', 'artifact_url', 'viewUrl', 'view_url', 'shareUrl', 'share_url', 'reportUrl', 'report_url'];
-                    
-                    for (var i = 0; i < possibleVars.length; i++) {
-                        try {
-                            if (window[possibleVars[i]]) {
-                                variables[possibleVars[i]] = window[possibleVars[i]];
-                            }
-                        } catch(e) {}
-                    }
-                    
-                    // Check for any global variables containing 'artifact' or 'view'
-                    for (var prop in window) {
-                        try {
-                            if (typeof window[prop] === 'string' && (prop.toLowerCase().includes('artifact') || prop.toLowerCase().includes('view'))) {
-                                if (window[prop].includes('flipsidecrypto.xyz') && window[prop].includes('artifacts')) {
-                                    variables[prop] = window[prop];
-                                }
-                            }
-                        } catch(e) {}
-                    }
-                    
-                    return variables;
-                """)
-                
-                if js_variables:
-                    self.logger.log_info(f"🔍 JavaScript variables found: {json.dumps(js_variables, indent=2)}")
-                    
-                    # Check if any of these variables contain the artifact URL
-                    for var_name, var_value in js_variables.items():
-                        if isinstance(var_value, str) and "artifacts" in var_value and not var_value.endswith('/artifacts'):
-                            if re.search(r'/shared/artifacts/[^/]+-[a-zA-Z0-9]+', var_value):
-                                self.logger.log_success(f"✅ Found artifact URL in JavaScript variable {var_name}: {var_value}")
-                                return var_value
-                
-            except Exception as e:
-                self.logger.log_debug(f"Browser console debugging failed: {e}")
-            
-            # Method 5: Look in the page source for specific artifact URLs
-            try:
-                page_source = self.driver.page_source
-                # Look for URLs matching the specific pattern: /shared/artifacts/[title]-[hash]
-                # This excludes the general artifacts dashboard
-                artifact_url_pattern = r'https://flipsidecrypto\.xyz/chat/shared/artifacts/[^"\s]+-[a-zA-Z0-9]+'
-                matches = re.findall(artifact_url_pattern, page_source)
-                
-                # Filter out the general artifacts dashboard
-                specific_artifacts = [url for url in matches if not url.endswith('/artifacts')]
-                
-                if specific_artifacts:
-                    artifact_url = specific_artifacts[0]
-                    self.logger.log_success(f"✅ Found specific artifact URL in page source: {artifact_url}")
-                    return artifact_url
-                elif matches:
-                    # If we only found the dashboard, log it but don't use it
-                    self.logger.log_warning(f"⚠️ Found artifacts dashboard URL but not specific artifact: {matches[0]}")
-            except Exception as e:
-                self.logger.log_debug(f"Could not find artifact URL in page source: {e}")
-            
-            self.logger.log_warning("⚠️ Could not extract artifact URL")
-            return ""
-            
-        except Exception as e:
-            self.logger.log_error(f"Error extracting artifact URL: {e}")
-            return ""
-    
-    def _find_publish_button(self):
-        """Find the Publish button - ONLY searches for buttons with 'Publish' text. NO share icons."""
-        try:
-            self.logger.log_info("🔍 Looking for Publish button (Publish text only - NO share icons)")
-            
-            # Method 1: Text-based XPath selectors (most reliable if text doesn't change)
-            # ONLY search for buttons that contain "Publish" text - NEVER search for share icons
-            publish_selectors = [
-                '//span[text()="Publish"]',
-                '//span[contains(text(), "Publish")]',
-                '//button[.//span[text()="Publish"]]',
-                '//button[contains(text(), "Publish")]',
-                '//button[normalize-space()="Publish"]',
-            ]
-            
-            for selector in publish_selectors:
-                try:
-                    elements = self.driver.find_elements(By.XPATH, selector)
-                    for element in elements:
-                        if element.is_displayed():
-                            text = element.text.strip()
-                            if "Publish" in text and "Share" not in text:
-                                self.logger.log_success(f"✅ Found Publish button by text: '{text}'")
-                                return element
-                except Exception as e:
-                    self.logger.log_debug(f"Publish selector {selector} failed: {e}")
-                    continue
-            
-            # Method 2: Search all buttons and check their text content
-            self.logger.log_info("🔄 Searching all buttons for 'Publish' text")
-            all_buttons = self.driver.find_elements(By.TAG_NAME, 'button')
-            for i, button in enumerate(all_buttons):
-                if not button.is_displayed():
-                    continue
-                try:
-                    button_text = button.text.strip()
-                    # ONLY match if it says "Publish" and does NOT say "Share"
-                    if "Publish" in button_text and "Share" not in button_text:
-                        self.logger.log_success(f"✅ Found Publish button by text content: '{button_text}' - Element {i}")
-                        return button
-                except Exception as e:
-                    self.logger.log_debug(f"Error checking button {i}: {e}")
-                    continue
-            
-            # Method 3: Fallback - Absolute XPath (last resort, fragile but useful if structure is stable)
-            # This is the specific XPath provided: /html/body/div[1]/div/main/main/div/div/div[2]/div/div/div[1]/div[2]/button[3]
-            try:
-                self.logger.log_info("🔄 Trying fallback absolute XPath for Publish button")
-                absolute_xpath = '/html/body/div[1]/div/main/main/div/div/div[2]/div/div/div[1]/div[2]/button[3]'
-                element = self.driver.find_element(By.XPATH, absolute_xpath)
-                if element.is_displayed():
-                    # Verify it's actually a publish button (not a share button)
-                    button_text = element.text.strip()
-                    if "Share" not in button_text:
-                        self.logger.log_success(f"✅ Found Publish button via absolute XPath: '{button_text}'")
-                        return element
-                    else:
-                        self.logger.log_debug(f"Absolute XPath found button but it's a share button: '{button_text}'")
-            except Exception as e:
-                self.logger.log_debug(f"Absolute XPath fallback failed: {e}")
-            
-            self.logger.log_warning("⚠️ Publish button not found")
-            return None
-            
-        except Exception as e:
-            self.logger.log_error(f"Error finding Publish button: {e}")
-            return None
-    
-    def _find_copy_link_button(self):
-        """Find the Copy link button that appears after publishing (has lucide-link SVG)."""
-        try:
-            self.logger.log_info("🔍 Looking for Copy link button (lucide-link icon)")
-            
-            # Method 1: XPath - Find button with data attributes AND specific SVG path pattern
-            # This matches the exact structure: button[data-state="closed"][data-slot="tooltip-trigger"] with SVG containing path d="M10 13..."
-            xpath_selectors = [
-                # XPath: button with both data attributes and SVG with the specific link path
-                '//button[@data-state="closed" and @data-slot="tooltip-trigger" and .//svg[contains(@class, "lucide-link")]]',
-                # XPath: button with SVG containing the specific path pattern for link icon
-                '//button[.//svg[.//path[@d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"]]]',
-                # XPath: button with SVG containing both link path patterns
-                '//button[.//svg[.//path[contains(@d, "M10 13")] and .//path[contains(@d, "M14 11")]]]',
-                # XPath: button with data attributes (more flexible)
-                '//button[@data-slot="tooltip-trigger"][.//svg[contains(@class, "lucide") and contains(@class, "link")]]',
-                # XPath: button with SVG class containing lucide-link
-                '//button[.//svg[contains(@class, "lucide-link")]]',
-            ]
-            
-            for xpath in xpath_selectors:
-                try:
-                    buttons = self.driver.find_elements(By.XPATH, xpath)
-                    self.logger.log_debug(f"XPath '{xpath}' found {len(buttons)} buttons")
-                    
-                    for i, button in enumerate(buttons):
-                        if not button.is_displayed():
-                            continue
-                        
-                        try:
-                            # CRITICAL: Exclude any button with share2 SVG or "Share" text
-                            button_text = button.text.strip().lower()
-                            share2_svgs = button.find_elements(By.XPATH, './/svg[contains(@class, "lucide-share2")]')
-                            if share2_svgs or 'share' in button_text:
-                                self.logger.log_debug(f"Skipping button {i} - share button")
-                                continue
-                            
-                            # Verify it has the link SVG structure
-                            link_paths = button.find_elements(By.XPATH, './/path[contains(@d, "M10 13") or contains(@d, "M14 11")]')
-                            if link_paths:
-                                self.logger.log_success(f"✅ Found Copy link button via XPath - Element {i}")
-                                return button
-                        except Exception as e:
-                            self.logger.log_debug(f"Error verifying button {i}: {e}")
-                            continue
-                            
-                except Exception as e:
-                    self.logger.log_debug(f"XPath selector '{xpath}' failed: {e}")
-                    continue
-            
-            # Method 2: CSS Selectors - More flexible class matching
-            css_selectors = [
-                # Combined data attributes
-                'button[data-state="closed"][data-slot="tooltip-trigger"]',
-                # Individual data attributes
-                'button[data-slot="tooltip-trigger"]',
-                'button[data-state="closed"]',
-            ]
-            
-            for selector in css_selectors:
-                try:
-                    buttons = self.driver.find_elements(By.CSS_SELECTOR, selector)
-                    self.logger.log_debug(f"CSS selector '{selector}' found {len(buttons)} buttons")
-                    
-                    for button in buttons:
-                        if not button.is_displayed():
-                            continue
-                        
-                        try:
-                            # CRITICAL: Exclude share buttons
-                            button_text = button.text.strip().lower()
-                            share2_svgs = button.find_elements(By.CSS_SELECTOR, 'svg.lucide-share2, svg[class*="lucide-share2"]')
-                            if share2_svgs or 'share' in button_text:
-                                continue
-                            
-                            # Check for link SVG - handle multiple classes (lucide lucide-link)
-                            svgs = button.find_elements(By.CSS_SELECTOR, 'svg[class*="lucide-link"]')
-                            if svgs:
-                                self.logger.log_success(f"✅ Found Copy link button via CSS selector: {selector}")
-                                return button
-                            
-                            # Check SVG HTML for link icon characteristics
-                            all_svgs = button.find_elements(By.CSS_SELECTOR, 'svg')
-                            for svg in all_svgs:
-                                svg_html = svg.get_attribute('outerHTML') or ''
-                                svg_class = svg.get_attribute('class') or ''
-                                
-                                # Skip if it has share2 icon
-                                if 'lucide-share2' in svg_class or 'lucide-share2' in svg_html:
-                                    continue
-                                
-                                # Check for link icon characteristics
-                                if ('lucide-link' in svg_class or 
-                                    'lucide-link' in svg_html or
-                                    (svg_html.count('<path') >= 2 and 'M10 13' in svg_html)):
-                                    self.logger.log_success(f"✅ Found Copy link button via SVG HTML check")
-                                    return button
-                        except Exception as e:
-                            self.logger.log_debug(f"Error checking button: {e}")
-                            continue
-                            
-                except Exception as e:
-                    self.logger.log_debug(f"CSS selector '{selector}' failed: {e}")
-                    continue
-            
-            # Method 3: Fallback - Search all buttons and check SVG structure
-            self.logger.log_info("🔄 Searching all buttons for link icon structure")
-            all_buttons = self.driver.find_elements(By.TAG_NAME, 'button')
-            self.logger.log_debug(f"Found {len(all_buttons)} total buttons on page")
-            
-            for i, button in enumerate(all_buttons):
-                if not button.is_displayed():
-                    continue
-                
-                try:
-                    # CRITICAL: Exclude any button with share2 SVG or "Share" text
-                    button_text = button.text.strip().lower()
-                    share2_svgs = button.find_elements(By.XPATH, './/svg[contains(@class, "lucide-share2")]')
-                    if share2_svgs or 'share' in button_text:
-                        continue
-                    
-                    # Check for SVG with link path patterns using XPath
-                    link_paths = button.find_elements(By.XPATH, './/path[contains(@d, "M10 13") or contains(@d, "M14 11")]')
-                    if link_paths:
-                        # Verify it has both paths (link icon has 2 specific paths)
-                        all_paths = button.find_elements(By.XPATH, './/path')
-                        if len(all_paths) >= 2:
-                            # Check if paths match link icon pattern
-                            path_d_values = [p.get_attribute('d') or '' for p in all_paths]
-                            has_m10_13 = any('M10 13' in d for d in path_d_values)
-                            has_m14_11 = any('M14 11' in d for d in path_d_values)
-                            
-                            if has_m10_13 and has_m14_11:
-                                self.logger.log_success(f"✅ Found Copy link button via path pattern - Element {i}")
-                                return button
-                            
-                except Exception as e:
-                    self.logger.log_debug(f"Error checking button {i}: {e}")
-                    continue
-            
-            self.logger.log_warning("⚠️ Copy link button not found")
-            return None
-            
-        except Exception as e:
-            self.logger.log_error(f"Error finding Copy link button: {e}")
-            return None
-    
+
     def _extract_artifact_url_from_clipboard(self) -> str:
         """Extract the artifact URL from the clipboard after clicking the publish button."""
         try:
@@ -1515,72 +1308,6 @@ class ChatDataExtractor:
             # This is not an error since we have fallback methods
             self.logger.log_debug(f"Clipboard not available (expected in headless): {e}")
             return ""
-    
-    def _find_view_button(self):
-        """Find the View button."""
-        try:
-            # Use the specific selector from the provided element
-            view_selectors = [
-                'button[data-slot="tooltip-trigger"]:has(span:contains("View"))',
-                'button[data-slot="tooltip-trigger"]',
-                '//button[@data-slot="tooltip-trigger"]//span[text()="View"]',
-                '//button[@data-slot="tooltip-trigger"]//span[contains(text(), "View")]',
-                '//span[text()="View"]',
-                '//span[contains(text(), "View")]',
-                '//button[.//span[text()="View"]]',
-                '//button[contains(text(), "View")]'
-            ]
-            
-            for selector in view_selectors:
-                try:
-                    if selector.startswith('//'):
-                        elements = self.driver.find_elements(By.XPATH, selector)
-                    else:
-                        elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
-                    
-                    self.logger.log_debug(f"Found {len(elements)} elements for View selector: {selector}")
-                    
-                    for i, element in enumerate(elements):
-                        if element.is_displayed():
-                            # Get element details for debugging
-                            element_text = element.text.strip()
-                            element_tag = element.tag_name
-                            location = element.location
-                            size = self.driver.get_window_size()
-                            
-                            self.logger.log_debug(f"View element {i}: tag={element_tag}, text='{element_text}', x={location['x']}, width={size['width']}")
-                            
-                            # Check if it contains "View" text and is in the right area
-                            if "View" in element_text and location['x'] > size['width'] * 0.3:
-                                self.logger.log_success(f"✅ Found View button: {selector} - '{element_text}' at x={location['x']}")
-                                return element
-                except Exception as e:
-                    self.logger.log_debug(f"View selector {selector} failed: {e}")
-                    continue
-            
-            # Fallback: Look for any button with "View" text
-            self.logger.log_info("🔍 Trying fallback View button search")
-            try:
-                all_buttons = self.driver.find_elements(By.TAG_NAME, "button")
-                for i, button in enumerate(all_buttons):
-                    if button.is_displayed():
-                        button_text = button.text.strip()
-                        if "View" in button_text:
-                            location = button.location
-                            size = self.driver.get_window_size()
-                            self.logger.log_debug(f"Fallback View button {i}: '{button_text}' at x={location['x']}")
-                            if location['x'] > size['width'] * 0.3:
-                                self.logger.log_success(f"✅ Found View button via fallback: '{button_text}' at x={location['x']}")
-                                return button
-            except Exception as e:
-                self.logger.log_debug(f"Fallback View search failed: {e}")
-            
-            self.logger.log_warning("⚠️ View button not found")
-            return None
-            
-        except Exception as e:
-            self.logger.log_error(f"View button search failed: {e}")
-            return None
     
     def _scroll_through_page(self):
         """Scroll through the entire page to ensure all content is loaded."""
