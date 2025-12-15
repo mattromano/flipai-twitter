@@ -564,23 +564,31 @@ NEVER:
             self.logger.log_error(f"❌ Failed to inject recent prompts: {e}")
             return template
     
-    def submit_prompt(self, prompt: str = "") -> bool:
+    def submit_prompt(self, prompt: str = "", custom_prompt: str = "") -> bool:
         """Submit a prompt to the chat.
 
         Args:
-            prompt: Original prompt parameter (kept for backward compatibility, currently unused)
+            prompt: Original prompt parameter (kept for backward compatibility)
+            custom_prompt: If provided, use this exact prompt instead of AI-generated template
         """
         try:
-            # Load recent prompts and format for injection
-            recent_prompts_list = self._format_recent_prompts_for_prompt()
-            self.logger.log_debug(f"📋 Recent prompts formatted: {recent_prompts_list[:200]}..." if len(recent_prompts_list) > 200 else f"📋 Recent prompts formatted: {recent_prompts_list}")
+            # Check if a custom prompt was provided
+            if custom_prompt and custom_prompt.strip():
+                full_prompt = custom_prompt.strip()
+                self.logger.log_info(f"📝 Using custom user-provided prompt")
+                self.logger.log_info(f"📏 Custom prompt length: {len(full_prompt)} characters")
+            else:
+                # Use the AI-generated prompt template (default behavior)
+                # Load recent prompts and format for injection
+                recent_prompts_list = self._format_recent_prompts_for_prompt()
+                self.logger.log_debug(f"📋 Recent prompts formatted: {recent_prompts_list[:200]}..." if len(recent_prompts_list) > 200 else f"📋 Recent prompts formatted: {recent_prompts_list}")
 
-            # Get the unified single-shot analysis prompt template
-            template = self._get_analysis_prompt_template()
-            self.logger.log_debug(f"📋 Template before injection contains '{{recent_prompts}}': {'{recent_prompts}' in template}")
-            full_prompt = self._inject_recent_prompts_into_template(template, recent_prompts_list)
-            self.logger.log_debug(f"📋 Template after injection contains '{{recent_prompts}}': {'{recent_prompts}' in full_prompt}")
-            self.logger.log_info(f"📝 Using unified single-shot analysis prompt template")
+                # Get the unified single-shot analysis prompt template
+                template = self._get_analysis_prompt_template()
+                self.logger.log_debug(f"📋 Template before injection contains '{{recent_prompts}}': {'{recent_prompts}' in template}")
+                full_prompt = self._inject_recent_prompts_into_template(template, recent_prompts_list)
+                self.logger.log_debug(f"📋 Template after injection contains '{{recent_prompts}}': {'{recent_prompts}' in full_prompt}")
+                self.logger.log_info(f"📝 Using unified single-shot analysis prompt template")
 
             # Log the full prompt length and verify rules are included
             self.logger.log_info(f"📝 Submitting prompt to chat")
@@ -1827,13 +1835,14 @@ NEVER:
             self.logger.log_error(f"Failed to capture final screenshot: {e}")
             return ""
     
-    def run_analysis(self, prompt: str = "", prompt2: Optional[str] = None, response_timeout: int = 600) -> Dict[str, Any]:
+    def run_analysis(self, prompt: str = "", prompt2: Optional[str] = None, response_timeout: int = 600, custom_prompt: str = "") -> Dict[str, Any]:
         """Run the complete analysis workflow with comprehensive features.
 
         Args:
-            prompt: Kept for backward compatibility (unused - static prompts are used instead)
+            prompt: Kept for backward compatibility
             prompt2: Kept for backward compatibility (unused)
             response_timeout: Timeout in seconds for waiting for AI response
+            custom_prompt: If provided, use this exact prompt instead of AI-generated template
 
         Returns:
             Dictionary with success status, data, and any errors
@@ -1850,7 +1859,10 @@ NEVER:
             self.extracted_twitter_text = ""
             # Step 1: Initialization
             self.logger.log_info("🚀 Starting Flipside AI Analysis Workflow")
-            self.logger.log_info("📋 Single-shot workflow with unified prompt")
+            if custom_prompt and custom_prompt.strip():
+                self.logger.log_info("📋 Using custom user-provided prompt")
+            else:
+                self.logger.log_info("📋 Single-shot workflow with unified prompt")
             self.logger.log_info("=" * 60)
 
             if not self.initialize():
@@ -1868,9 +1880,12 @@ NEVER:
                 raise Exception("Failed to navigate to chat page")
             self.logger.log_success("✅ Successfully navigated to chat page")
 
-            # Step 4: Submit Unified Prompt
-            self.logger.log_info(f"📝 Submitting unified analysis prompt")
-            if not self.submit_prompt():
+            # Step 4: Submit Prompt (custom or AI-generated)
+            if custom_prompt and custom_prompt.strip():
+                self.logger.log_info(f"📝 Submitting custom user-provided prompt")
+            else:
+                self.logger.log_info(f"📝 Submitting unified analysis prompt")
+            if not self.submit_prompt(custom_prompt=custom_prompt):
                 raise Exception("Failed to submit prompt")
             self.logger.log_success("✅ Prompt submitted successfully")
 

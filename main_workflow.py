@@ -38,14 +38,20 @@ class MainWorkflow:
         self.tweet_preview = TweetPreviewGenerator()
         self.prompt_selector = PromptSelector()
     
-    def run_analysis_only(self, prompt: str, timeout: int = 600) -> dict:
-        """Run analysis workflow only (no Twitter posting)."""
+    def run_analysis_only(self, prompt: str, timeout: int = 600, custom_prompt: str = "") -> dict:
+        """Run analysis workflow only (no Twitter posting).
+
+        Args:
+            prompt: Legacy parameter (unused)
+            timeout: Response timeout in seconds
+            custom_prompt: If provided, use this exact prompt instead of AI-generated template
+        """
         try:
             self.logger.log_info("🚀 Starting Flipside AI Analysis Workflow")
             self.logger.log_info("=" * 60)
-            
+
             # Run the complete analysis workflow with all features
-            analysis_result = self.chat_manager.run_analysis(prompt, timeout)
+            analysis_result = self.chat_manager.run_analysis(prompt, response_timeout=timeout, custom_prompt=custom_prompt)
             
             if analysis_result["success"]:
                 # Save results
@@ -65,14 +71,22 @@ class MainWorkflow:
             self.logger.log_error(f"Analysis workflow failed: {e}")
             return {"success": False, "error": str(e)}
     
-    def run_full_workflow(self, prompt: str, timeout: int = 600, post_to_twitter: bool = True, test_mode: bool = False) -> dict:
-        """Run complete workflow: analysis + Twitter posting."""
+    def run_full_workflow(self, prompt: str, timeout: int = 600, post_to_twitter: bool = True, test_mode: bool = False, custom_prompt: str = "") -> dict:
+        """Run complete workflow: analysis + Twitter posting.
+
+        Args:
+            prompt: Legacy parameter (unused)
+            timeout: Response timeout in seconds
+            post_to_twitter: Whether to post to Twitter
+            test_mode: If True, create preview only without posting
+            custom_prompt: If provided, use this exact prompt instead of AI-generated template
+        """
         try:
             self.logger.log_info("🚀 Starting Complete Flipside AI + Twitter Workflow")
             self.logger.log_info("=" * 60)
-            
+
             # Step 1: Run analysis
-            analysis_result = self.run_analysis_only(prompt, timeout)
+            analysis_result = self.run_analysis_only(prompt, timeout, custom_prompt=custom_prompt)
             
             if not analysis_result.get("success", False):
                 return analysis_result
@@ -281,9 +295,9 @@ Examples:
     # Prompt selection arguments (optional - AI generates its own if not provided)
     prompt_group = parser.add_mutually_exclusive_group(required=False)
     prompt_group.add_argument("--prompt", "-p",
-                             help="Analysis prompt (ignored - AI generates its own)")
+                             help="Custom analysis prompt (if not provided, AI generates its own)")
     prompt_group.add_argument("--random-prompt", action="store_true",
-                             help="Select a random prompt (ignored - AI generates its own)")
+                             help="Select a random prompt (legacy - AI generates its own if not provided)")
     
     parser.add_argument("--category", type=str,
                        help="Filter prompts by category (use with --random-prompt)")
@@ -326,24 +340,26 @@ Examples:
         print(f"Available Difficulties: {', '.join(stats['difficulty_levels_available'])}")
         sys.exit(0)
     
-    # With the new AI-generated prompt system, the prompt parameter is optional
-    # The AI will generate its own analysis topic based on current data
+    # Initialize workflow
     workflow = MainWorkflow()
-    prompt_to_use = ""  # Empty string - AI generates its own prompt
-    
-    # Legacy support: if prompt or random-prompt is provided, log it but don't use it
+
+    # Check if custom prompt was provided
+    custom_prompt = ""
     if args.prompt:
-        print("📝 Note: Prompt parameter provided but ignored - AI generates its own analysis topic")
-        print(f"   (Provided prompt: {args.prompt[:50]}...)")
+        custom_prompt = args.prompt
+        print(f"📝 Using custom prompt: {args.prompt[:100]}{'...' if len(args.prompt) > 100 else ''}")
     elif args.random_prompt:
-        print("📝 Note: Random prompt selection ignored - AI generates its own analysis topic")
+        print("📝 Note: Random prompt selection is legacy - AI generates its own analysis topic")
         if args.category or args.difficulty:
             print(f"   (Filters provided: category={args.category}, difficulty={args.difficulty})")
-    
+
     # Show what we're running
     print("🚀 Flipside AI + Twitter Automation")
     print("=" * 50)
-    print("🤖 Mode: AI-Generated Prompt (AI selects analysis topic based on current data)")
+    if custom_prompt:
+        print("📝 Mode: Custom User-Provided Prompt")
+    else:
+        print("🤖 Mode: AI-Generated Prompt (AI selects analysis topic based on current data)")
     print(f"⏱️  Timeout: {args.timeout} seconds")
     
     if args.analysis_only:
@@ -360,13 +376,14 @@ Examples:
     # Run workflow
     try:
         if args.analysis_only:
-            result = workflow.run_analysis_only(prompt_to_use, args.timeout)
+            result = workflow.run_analysis_only("", args.timeout, custom_prompt=custom_prompt)
         else:
             result = workflow.run_full_workflow(
-                prompt_to_use, 
-                args.timeout, 
+                "",
+                args.timeout,
                 post_to_twitter=not args.no_twitter,
-                test_mode=args.test_mode
+                test_mode=args.test_mode,
+                custom_prompt=custom_prompt
             )
         
         # Log that AI-generated prompt system was used
