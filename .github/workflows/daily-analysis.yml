@@ -6,8 +6,12 @@ on:
     - cron: '0 9 * * *'
     - cron: '0 18 * * *'
   workflow_dispatch: # Allow manual trigger
-    # Note: With AI-generated prompt system, the AI automatically selects analysis topics
-    # No input parameters needed - the AI will choose based on current data and avoid recent analyses
+    inputs:
+      custom_prompt:
+        description: 'Custom analysis prompt (leave empty for AI to choose topic automatically)'
+        required: false
+        default: ''
+        type: string
 
 jobs:
   analyze:
@@ -58,14 +62,20 @@ jobs:
         CHROME_HEADLESS: 'true'
       run: |
         source venv/bin/activate
-        
-        # With AI-generated prompt system, no prompt parameter needed
-        # The AI will automatically select an analysis topic based on current data
-        # and avoid repeating recent analyses (tracks last 32 prompts)
-        echo "🤖 Running with AI-generated prompt system..."
-        echo "   The AI will select an analysis topic automatically"
-        echo "   Recent analyses are tracked to avoid repetition"
-        python main_workflow.py
+
+        # Check if custom prompt was provided
+        CUSTOM_PROMPT="${{ github.event.inputs.custom_prompt }}"
+
+        if [ -n "$CUSTOM_PROMPT" ]; then
+          echo "📝 Running with custom prompt..."
+          echo "   Prompt: $CUSTOM_PROMPT"
+          python main_workflow.py --prompt "$CUSTOM_PROMPT"
+        else
+          echo "🤖 Running with AI-generated prompt system..."
+          echo "   The AI will select an analysis topic automatically"
+          echo "   Recent analyses are tracked to avoid repetition"
+          python main_workflow.py
+        fi
         
     - name: Upload screenshots as artifacts
       uses: actions/upload-artifact@v4
@@ -104,8 +114,14 @@ jobs:
         echo "**Timestamp:** $(date)" >> $GITHUB_STEP_SUMMARY
         echo "**Trigger:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
         
-        # Show AI-generated prompt details
-        echo "**Prompt System:** AI-Generated (AI selects topic automatically)" >> $GITHUB_STEP_SUMMARY
+        # Show prompt details
+        CUSTOM_PROMPT="${{ github.event.inputs.custom_prompt }}"
+        if [ -n "$CUSTOM_PROMPT" ]; then
+          echo "**Prompt System:** Custom User-Provided" >> $GITHUB_STEP_SUMMARY
+          echo "**Custom Prompt:** \`$CUSTOM_PROMPT\`" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "**Prompt System:** AI-Generated (AI selects topic automatically)" >> $GITHUB_STEP_SUMMARY
+        fi
         
         # Try to get the AI-generated condensed prompt from logs
         if [ -d "logs" ]; then
